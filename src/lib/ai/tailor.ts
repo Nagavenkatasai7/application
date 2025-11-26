@@ -151,7 +151,6 @@ export async function tailorResume(
     );
   }
 
-  const config = getAIConfig();
   const modelConfig = getModelConfig("resumeTailoring");
 
   // Build the prompt

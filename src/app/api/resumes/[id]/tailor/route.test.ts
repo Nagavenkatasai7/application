@@ -2,19 +2,30 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
 import type { ResumeContent } from "@/lib/validations/resume";
 
+// Mock functions for chained calls
+const mockResumeWhere = vi.fn();
+const mockJobWhere = vi.fn();
+
 // Mock dependencies
 vi.mock("@/lib/db", () => ({
   db: {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn(),
+    select: vi.fn(() => ({
+      from: vi.fn((table) => ({
+        where: table === "resumes" ? mockResumeWhere : mockJobWhere,
+      })),
+    })),
   },
-  resumes: {},
-  jobs: {},
+  resumes: "resumes",
+  jobs: "jobs",
 }));
 
 vi.mock("@/lib/auth", () => ({
-  getOrCreateLocalUser: vi.fn(),
+  getOrCreateLocalUser: vi.fn().mockResolvedValue({
+    id: "user-123",
+    email: "test@example.com",
+    name: "Test User",
+    createdAt: new Date(),
+  }),
 }));
 
 vi.mock("@/lib/ai", () => ({
@@ -33,12 +44,18 @@ vi.mock("@/lib/ai", () => ({
   isAIConfigured: vi.fn(),
 }));
 
-import { db } from "@/lib/db";
-import { getOrCreateLocalUser } from "@/lib/auth";
-import { tailorResume, tailorRequestSchema, TailorError, isAIConfigured } from "@/lib/ai";
+vi.mock("drizzle-orm", () => ({
+  eq: vi.fn((field, value) => ({ field, value })),
+  and: vi.fn((...conditions) => conditions),
+}));
 
-const mockDb = vi.mocked(db);
-const mockGetOrCreateLocalUser = vi.mocked(getOrCreateLocalUser);
+import {
+  tailorResume,
+  tailorRequestSchema,
+  TailorError,
+  isAIConfigured,
+} from "@/lib/ai";
+
 const mockTailorResume = vi.mocked(tailorResume);
 const mockTailorRequestSchema = vi.mocked(tailorRequestSchema);
 const mockIsAIConfigured = vi.mocked(isAIConfigured);
@@ -80,11 +97,6 @@ describe("Tailor API Route", () => {
     vi.clearAllMocks();
 
     // Default mock implementations
-    mockGetOrCreateLocalUser.mockResolvedValue({
-      id: "user-123",
-      email: "test@example.com",
-      createdAt: new Date(),
-    });
     mockIsAIConfigured.mockReturnValue(true);
     mockTailorRequestSchema.safeParse.mockReturnValue({
       success: true,
@@ -99,10 +111,9 @@ describe("Tailor API Route", () => {
     it("should return 503 when AI is not configured", async () => {
       mockIsAIConfigured.mockReturnValue(false);
 
-      const response = await POST(
-        createRequest({ jobId: "job-123" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "job-123" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(503);
       const data = await response.json();
@@ -111,13 +122,18 @@ describe("Tailor API Route", () => {
     });
 
     it("should return 400 for invalid JSON body", async () => {
-      const request = new Request("http://localhost/api/resumes/resume-123/tailor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "invalid json",
-      });
+      const request = new Request(
+        "http://localhost/api/resumes/resume-123/tailor",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "invalid json",
+        }
+      );
 
-      const response = await POST(request, { params: createParams("resume-123") });
+      const response = await POST(request, {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(400);
       const data = await response.json();
@@ -130,10 +146,9 @@ describe("Tailor API Route", () => {
         error: { issues: [{ message: "Invalid job ID" }] },
       } as never);
 
-      const response = await POST(
-        createRequest({ jobId: "invalid" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "invalid" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(400);
       const data = await response.json();
@@ -141,12 +156,11 @@ describe("Tailor API Route", () => {
     });
 
     it("should return 404 when resume not found", async () => {
-      mockDb.where.mockResolvedValue([]);
+      mockResumeWhere.mockResolvedValue([]);
 
-      const response = await POST(
-        createRequest({ jobId: "job-123" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "job-123" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(404);
       const data = await response.json();
@@ -155,18 +169,18 @@ describe("Tailor API Route", () => {
 
     it("should return 404 when job not found", async () => {
       // First call returns resume, second call returns empty (job not found)
-      mockDb.where
-        .mockResolvedValueOnce([{
+      mockResumeWhere.mockResolvedValue([
+        {
           id: "resume-123",
           userId: "user-123",
           content: createMockResume(),
-        }])
-        .mockResolvedValueOnce([]);
+        },
+      ]);
+      mockJobWhere.mockResolvedValue([]);
 
-      const response = await POST(
-        createRequest({ jobId: "job-123" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "job-123" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(404);
       const data = await response.json();
@@ -174,23 +188,25 @@ describe("Tailor API Route", () => {
     });
 
     it("should return 400 when resume has no content", async () => {
-      mockDb.where
-        .mockResolvedValueOnce([{
+      mockResumeWhere.mockResolvedValue([
+        {
           id: "resume-123",
           userId: "user-123",
           content: null,
-        }])
-        .mockResolvedValueOnce([{
+        },
+      ]);
+      mockJobWhere.mockResolvedValue([
+        {
           id: "job-123",
           title: "Software Engineer",
           companyName: "Acme",
           description: "Job description",
-        }]);
+        },
+      ]);
 
-      const response = await POST(
-        createRequest({ jobId: "job-123" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "job-123" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(400);
       const data = await response.json();
@@ -198,23 +214,25 @@ describe("Tailor API Route", () => {
     });
 
     it("should return 400 when job has no description", async () => {
-      mockDb.where
-        .mockResolvedValueOnce([{
+      mockResumeWhere.mockResolvedValue([
+        {
           id: "resume-123",
           userId: "user-123",
           content: createMockResume(),
-        }])
-        .mockResolvedValueOnce([{
+        },
+      ]);
+      mockJobWhere.mockResolvedValue([
+        {
           id: "job-123",
           title: "Software Engineer",
           companyName: "Acme",
           description: null,
-        }]);
+        },
+      ]);
 
-      const response = await POST(
-        createRequest({ jobId: "job-123" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "job-123" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(400);
       const data = await response.json();
@@ -225,20 +243,23 @@ describe("Tailor API Route", () => {
       const tailoredResume = createMockResume();
       tailoredResume.summary = "Tailored summary";
 
-      mockDb.where
-        .mockResolvedValueOnce([{
+      mockResumeWhere.mockResolvedValue([
+        {
           id: "resume-123",
           userId: "user-123",
           content: createMockResume(),
-        }])
-        .mockResolvedValueOnce([{
+        },
+      ]);
+      mockJobWhere.mockResolvedValue([
+        {
           id: "job-123",
           title: "Senior Software Engineer",
           companyName: "Acme Inc",
           description: "Looking for a senior engineer...",
           requirements: ["5+ years"],
           skills: ["React", "Node.js"],
-        }]);
+        },
+      ]);
 
       mockTailorResume.mockResolvedValue({
         tailoredResume,
@@ -250,10 +271,9 @@ describe("Tailor API Route", () => {
         },
       });
 
-      const response = await POST(
-        createRequest({ jobId: "job-123" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "job-123" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(200);
       const data = await response.json();
@@ -263,26 +283,28 @@ describe("Tailor API Route", () => {
     });
 
     it("should handle TailorError with proper status codes", async () => {
-      mockDb.where
-        .mockResolvedValueOnce([{
+      mockResumeWhere.mockResolvedValue([
+        {
           id: "resume-123",
           userId: "user-123",
           content: createMockResume(),
-        }])
-        .mockResolvedValueOnce([{
+        },
+      ]);
+      mockJobWhere.mockResolvedValue([
+        {
           id: "job-123",
           title: "Engineer",
           companyName: "Acme",
           description: "Job description",
-        }]);
+        },
+      ]);
 
       const tailorError = new TailorError("Rate limit exceeded", "RATE_LIMIT");
       mockTailorResume.mockRejectedValue(tailorError);
 
-      const response = await POST(
-        createRequest({ jobId: "job-123" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "job-123" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(429);
       const data = await response.json();
@@ -290,26 +312,28 @@ describe("Tailor API Route", () => {
     });
 
     it("should handle AUTH_ERROR with 401 status", async () => {
-      mockDb.where
-        .mockResolvedValueOnce([{
+      mockResumeWhere.mockResolvedValue([
+        {
           id: "resume-123",
           userId: "user-123",
           content: createMockResume(),
-        }])
-        .mockResolvedValueOnce([{
+        },
+      ]);
+      mockJobWhere.mockResolvedValue([
+        {
           id: "job-123",
           title: "Engineer",
           companyName: "Acme",
           description: "Job description",
-        }]);
+        },
+      ]);
 
       const tailorError = new TailorError("Invalid API key", "AUTH_ERROR");
       mockTailorResume.mockRejectedValue(tailorError);
 
-      const response = await POST(
-        createRequest({ jobId: "job-123" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "job-123" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(401);
       const data = await response.json();
@@ -317,25 +341,27 @@ describe("Tailor API Route", () => {
     });
 
     it("should handle generic errors with 500 status", async () => {
-      mockDb.where
-        .mockResolvedValueOnce([{
+      mockResumeWhere.mockResolvedValue([
+        {
           id: "resume-123",
           userId: "user-123",
           content: createMockResume(),
-        }])
-        .mockResolvedValueOnce([{
+        },
+      ]);
+      mockJobWhere.mockResolvedValue([
+        {
           id: "job-123",
           title: "Engineer",
           companyName: "Acme",
           description: "Job description",
-        }]);
+        },
+      ]);
 
       mockTailorResume.mockRejectedValue(new Error("Unknown error"));
 
-      const response = await POST(
-        createRequest({ jobId: "job-123" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "job-123" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(500);
       const data = await response.json();
@@ -343,18 +369,21 @@ describe("Tailor API Route", () => {
     });
 
     it("should use default company name when not provided", async () => {
-      mockDb.where
-        .mockResolvedValueOnce([{
+      mockResumeWhere.mockResolvedValue([
+        {
           id: "resume-123",
           userId: "user-123",
           content: createMockResume(),
-        }])
-        .mockResolvedValueOnce([{
+        },
+      ]);
+      mockJobWhere.mockResolvedValue([
+        {
           id: "job-123",
           title: "Software Engineer",
           companyName: null,
           description: "Looking for an engineer...",
-        }]);
+        },
+      ]);
 
       mockTailorResume.mockResolvedValue({
         tailoredResume: createMockResume(),
@@ -366,10 +395,9 @@ describe("Tailor API Route", () => {
         },
       });
 
-      const response = await POST(
-        createRequest({ jobId: "job-123" }),
-        { params: createParams("resume-123") }
-      );
+      const response = await POST(createRequest({ jobId: "job-123" }), {
+        params: createParams("resume-123"),
+      });
 
       expect(response.status).toBe(200);
       expect(mockTailorResume).toHaveBeenCalledWith(

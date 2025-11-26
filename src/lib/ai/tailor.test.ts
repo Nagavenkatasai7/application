@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { ResumeContent } from "@/lib/validations/resume";
 import { tailorRequestSchema, TailorError } from "./tailor";
 
@@ -166,7 +166,15 @@ describe("Tailor Service", () => {
     });
 
     it("should allow optional requirements and skills", () => {
-      const request = {
+      // Verify request structure allows optional fields
+      const request: {
+        resume: ReturnType<typeof createMockResume>;
+        jobTitle: string;
+        companyName: string;
+        jobDescription: string;
+        requirements?: string[];
+        skills?: string[];
+      } = {
         resume: createMockResume(),
         jobTitle: "Software Engineer",
         companyName: "Acme Inc",
