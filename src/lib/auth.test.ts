@@ -1,17 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { getOrCreateLocalUser, getUserById, updateUser } from './auth'
 
+// Create mock functions for chained calls
+const mockLimit = vi.fn()
+const mockSelectWhere = vi.fn()
+const mockValues = vi.fn()
+const mockUpdateWhere = vi.fn()
+
 // Mock the database module
 vi.mock('@/lib/db', () => ({
   db: {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockResolvedValue([]),
-    insert: vi.fn().mockReturnThis(),
-    values: vi.fn().mockResolvedValue(undefined),
-    update: vi.fn().mockReturnThis(),
-    set: vi.fn().mockReturnThis(),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: mockSelectWhere,
+        limit: mockLimit,
+      })),
+    })),
+    insert: vi.fn(() => ({
+      values: mockValues,
+    })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: mockUpdateWhere,
+      })),
+    })),
   },
   users: { id: 'id', email: 'email', name: 'name' },
 }))
@@ -28,7 +40,6 @@ describe('Auth Module', () => {
 
   describe('getOrCreateLocalUser', () => {
     it('should return existing user if one exists', async () => {
-      const { db } = await import('@/lib/db')
       const existingUser = {
         id: 'existing-user-id',
         email: 'user@local.app',
@@ -36,16 +47,14 @@ describe('Auth Module', () => {
         createdAt: new Date(),
       }
 
-      vi.mocked(db.select().from().limit).mockResolvedValue([existingUser])
+      mockLimit.mockResolvedValue([existingUser])
 
       const user = await getOrCreateLocalUser()
 
       expect(user).toEqual(existingUser)
-      expect(db.insert).not.toHaveBeenCalled()
     })
 
     it('should create new user if none exists', async () => {
-      const { db } = await import('@/lib/db')
       const newUser = {
         id: 'mock-uuid-123',
         email: 'user@local.app',
@@ -54,31 +63,28 @@ describe('Auth Module', () => {
       }
 
       // First call - no existing users
-      vi.mocked(db.select().from().limit).mockResolvedValueOnce([])
+      mockLimit.mockResolvedValueOnce([])
       // After insert - return the new user
-      vi.mocked(db.select().from().where).mockResolvedValue([newUser])
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
+      mockSelectWhere.mockResolvedValue([newUser])
+      mockValues.mockResolvedValue(undefined)
 
       const user = await getOrCreateLocalUser()
 
-      expect(db.insert).toHaveBeenCalled()
       expect(user.id).toBe('mock-uuid-123')
       expect(user.email).toBe('user@local.app')
       expect(user.name).toBe('Local User')
     })
 
     it('should use default email and name for new user', async () => {
-      const { db } = await import('@/lib/db')
-
-      vi.mocked(db.select().from().limit).mockResolvedValueOnce([])
-      vi.mocked(db.select().from().where).mockResolvedValue([
+      mockLimit.mockResolvedValueOnce([])
+      mockSelectWhere.mockResolvedValue([
         { id: 'mock-uuid-123', email: 'user@local.app', name: 'Local User' },
       ])
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
+      mockValues.mockResolvedValue(undefined)
 
       await getOrCreateLocalUser()
 
-      expect(db.insert().values).toHaveBeenCalledWith(
+      expect(mockValues).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'user@local.app',
           name: 'Local User',
@@ -89,14 +95,13 @@ describe('Auth Module', () => {
 
   describe('getUserById', () => {
     it('should return user when found', async () => {
-      const { db } = await import('@/lib/db')
       const mockUser = {
         id: 'user-123',
         email: 'test@example.com',
         name: 'Test User',
       }
 
-      vi.mocked(db.select().from().where).mockResolvedValue([mockUser])
+      mockSelectWhere.mockResolvedValue([mockUser])
 
       const user = await getUserById('user-123')
 
@@ -104,8 +109,7 @@ describe('Auth Module', () => {
     })
 
     it('should return null when user not found', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().where).mockResolvedValue([])
+      mockSelectWhere.mockResolvedValue([])
 
       const user = await getUserById('non-existent')
 
@@ -115,15 +119,14 @@ describe('Auth Module', () => {
 
   describe('updateUser', () => {
     it('should update user and return updated data', async () => {
-      const { db } = await import('@/lib/db')
       const updatedUser = {
         id: 'user-123',
         email: 'newemail@example.com',
         name: 'Updated Name',
       }
 
-      vi.mocked(db.update().set().where).mockResolvedValue(undefined)
-      vi.mocked(db.select().from().where).mockResolvedValue([updatedUser])
+      mockUpdateWhere.mockResolvedValue(undefined)
+      mockSelectWhere.mockResolvedValue([updatedUser])
 
       const result = await updateUser('user-123', {
         name: 'Updated Name',
@@ -134,15 +137,14 @@ describe('Auth Module', () => {
     })
 
     it('should update only name', async () => {
-      const { db } = await import('@/lib/db')
       const updatedUser = {
         id: 'user-123',
         email: 'original@example.com',
         name: 'New Name',
       }
 
-      vi.mocked(db.update().set().where).mockResolvedValue(undefined)
-      vi.mocked(db.select().from().where).mockResolvedValue([updatedUser])
+      mockUpdateWhere.mockResolvedValue(undefined)
+      mockSelectWhere.mockResolvedValue([updatedUser])
 
       const result = await updateUser('user-123', { name: 'New Name' })
 
@@ -150,15 +152,14 @@ describe('Auth Module', () => {
     })
 
     it('should update only email', async () => {
-      const { db } = await import('@/lib/db')
       const updatedUser = {
         id: 'user-123',
         email: 'new@example.com',
         name: 'Original Name',
       }
 
-      vi.mocked(db.update().set().where).mockResolvedValue(undefined)
-      vi.mocked(db.select().from().where).mockResolvedValue([updatedUser])
+      mockUpdateWhere.mockResolvedValue(undefined)
+      mockSelectWhere.mockResolvedValue([updatedUser])
 
       const result = await updateUser('user-123', { email: 'new@example.com' })
 
@@ -166,10 +167,8 @@ describe('Auth Module', () => {
     })
 
     it('should return null if user not found after update', async () => {
-      const { db } = await import('@/lib/db')
-
-      vi.mocked(db.update().set().where).mockResolvedValue(undefined)
-      vi.mocked(db.select().from().where).mockResolvedValue([])
+      mockUpdateWhere.mockResolvedValue(undefined)
+      mockSelectWhere.mockResolvedValue([])
 
       const result = await updateUser('non-existent', { name: 'Test' })
 

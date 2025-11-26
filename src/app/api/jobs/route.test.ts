@@ -1,17 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, POST } from './route'
-import { NextResponse } from 'next/server'
+
+// Create mock functions for chained calls
+const mockOffset = vi.fn()
+const mockValues = vi.fn()
 
 // Mock the database module
 vi.mock('@/lib/db', () => ({
   db: {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    orderBy: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    offset: vi.fn().mockResolvedValue([]),
-    insert: vi.fn().mockReturnThis(),
-    values: vi.fn().mockResolvedValue(undefined),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        orderBy: vi.fn(() => ({
+          limit: vi.fn(() => ({
+            offset: mockOffset,
+          })),
+        })),
+      })),
+    })),
+    insert: vi.fn(() => ({
+      values: mockValues,
+    })),
   },
   jobs: { id: 'id', createdAt: 'created_at' },
 }))
@@ -28,16 +36,12 @@ describe('Jobs API Route', () => {
 
   describe('GET /api/jobs', () => {
     it('should return jobs with default pagination', async () => {
-      const { db } = await import('@/lib/db')
       const mockJobs = [
         { id: '1', title: 'Software Engineer', platform: 'linkedin' },
         { id: '2', title: 'Product Manager', platform: 'indeed' },
       ]
 
-      vi.mocked(db.select().from).mockReturnThis()
-      vi.mocked(db.select().from().orderBy).mockReturnThis()
-      vi.mocked(db.select().from().orderBy().limit).mockReturnThis()
-      vi.mocked(db.select().from().orderBy().limit().offset).mockResolvedValue(mockJobs)
+      mockOffset.mockResolvedValue(mockJobs)
 
       const request = new Request('http://localhost/api/jobs')
       const response = await GET(request)
@@ -50,8 +54,7 @@ describe('Jobs API Route', () => {
     })
 
     it('should handle custom pagination parameters', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().orderBy().limit().offset).mockResolvedValue([])
+      mockOffset.mockResolvedValue([])
 
       const request = new Request('http://localhost/api/jobs?limit=10&offset=5')
       const response = await GET(request)
@@ -62,10 +65,7 @@ describe('Jobs API Route', () => {
     })
 
     it('should handle database errors gracefully', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().orderBy().limit().offset).mockRejectedValue(
-        new Error('Database error')
-      )
+      mockOffset.mockRejectedValue(new Error('Database error'))
 
       const request = new Request('http://localhost/api/jobs')
       const response = await GET(request)
@@ -79,9 +79,7 @@ describe('Jobs API Route', () => {
 
   describe('POST /api/jobs', () => {
     it('should create a job with required fields', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert).mockReturnThis()
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
+      mockValues.mockResolvedValue(undefined)
 
       const request = new Request('http://localhost/api/jobs', {
         method: 'POST',
@@ -103,8 +101,7 @@ describe('Jobs API Route', () => {
     })
 
     it('should use default platform when not provided', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
+      mockValues.mockResolvedValue(undefined)
 
       const request = new Request('http://localhost/api/jobs', {
         method: 'POST',
@@ -119,8 +116,7 @@ describe('Jobs API Route', () => {
     })
 
     it('should handle database errors on create', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockRejectedValue(new Error('Insert failed'))
+      mockValues.mockRejectedValue(new Error('Insert failed'))
 
       const request = new Request('http://localhost/api/jobs', {
         method: 'POST',

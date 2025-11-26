@@ -4,12 +4,12 @@ import { useIsMobile } from './use-mobile'
 
 describe('useIsMobile Hook', () => {
   const originalInnerWidth = window.innerWidth
-  let mockMatchMedia: ReturnType<typeof vi.fn>
+  const originalMatchMedia = window.matchMedia
   let mediaQueryCallback: ((event: { matches: boolean }) => void) | null = null
 
-  beforeEach(() => {
-    mockMatchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: false,
+  const createMockMatchMedia = (matches: boolean = false) => {
+    return vi.fn().mockImplementation((query: string) => ({
+      matches,
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -21,8 +21,11 @@ describe('useIsMobile Hook', () => {
       }),
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
-    }))
-    window.matchMedia = mockMatchMedia
+    })) as unknown as typeof window.matchMedia
+  }
+
+  beforeEach(() => {
+    window.matchMedia = createMockMatchMedia(false)
   })
 
   afterEach(() => {
@@ -31,6 +34,7 @@ describe('useIsMobile Hook', () => {
       configurable: true,
       value: originalInnerWidth,
     })
+    window.matchMedia = originalMatchMedia
     mediaQueryCallback = null
   })
 
@@ -91,17 +95,17 @@ describe('useIsMobile Hook', () => {
 
     renderHook(() => useIsMobile())
 
-    expect(mockMatchMedia).toHaveBeenCalledWith('(max-width: 767px)')
+    expect(window.matchMedia).toHaveBeenCalledWith('(max-width: 767px)')
   })
 
   it('should add event listener on mount', () => {
     const addEventListener = vi.fn()
-    mockMatchMedia.mockImplementation((query: string) => ({
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: false,
       media: query,
       addEventListener,
       removeEventListener: vi.fn(),
-    }))
+    })) as unknown as typeof window.matchMedia
 
     Object.defineProperty(window, 'innerWidth', {
       writable: true,
@@ -116,12 +120,12 @@ describe('useIsMobile Hook', () => {
 
   it('should remove event listener on unmount', () => {
     const removeEventListener = vi.fn()
-    mockMatchMedia.mockImplementation((query: string) => ({
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: false,
       media: query,
       addEventListener: vi.fn(),
       removeEventListener,
-    }))
+    })) as unknown as typeof window.matchMedia
 
     Object.defineProperty(window, 'innerWidth', {
       writable: true,

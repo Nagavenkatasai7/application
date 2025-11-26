@@ -1,16 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, POST } from './route'
 
+// Create mock functions for chained calls
+const mockOffset = vi.fn()
+const mockValues = vi.fn()
+
 // Mock the database module
 vi.mock('@/lib/db', () => ({
   db: {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    orderBy: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    offset: vi.fn().mockResolvedValue([]),
-    insert: vi.fn().mockReturnThis(),
-    values: vi.fn().mockResolvedValue(undefined),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        orderBy: vi.fn(() => ({
+          limit: vi.fn(() => ({
+            offset: mockOffset,
+          })),
+        })),
+      })),
+    })),
+    insert: vi.fn(() => ({
+      values: mockValues,
+    })),
   },
   companies: { id: 'id', cachedAt: 'cached_at' },
 }))
@@ -27,13 +36,12 @@ describe('Companies API Route', () => {
 
   describe('GET /api/companies', () => {
     it('should return companies with default pagination', async () => {
-      const { db } = await import('@/lib/db')
       const mockCompanies = [
         { id: 'company-1', name: 'Acme Corp' },
         { id: 'company-2', name: 'Tech Inc' },
       ]
 
-      vi.mocked(db.select().from().orderBy().limit().offset).mockResolvedValue(mockCompanies)
+      mockOffset.mockResolvedValue(mockCompanies)
 
       const request = new Request('http://localhost/api/companies')
       const response = await GET(request)
@@ -46,8 +54,7 @@ describe('Companies API Route', () => {
     })
 
     it('should handle custom pagination parameters', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().orderBy().limit().offset).mockResolvedValue([])
+      mockOffset.mockResolvedValue([])
 
       const request = new Request('http://localhost/api/companies?limit=25&offset=10')
       const response = await GET(request)
@@ -58,8 +65,7 @@ describe('Companies API Route', () => {
     })
 
     it('should return empty array when no companies exist', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().orderBy().limit().offset).mockResolvedValue([])
+      mockOffset.mockResolvedValue([])
 
       const request = new Request('http://localhost/api/companies')
       const response = await GET(request)
@@ -70,10 +76,7 @@ describe('Companies API Route', () => {
     })
 
     it('should handle database errors', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().orderBy().limit().offset).mockRejectedValue(
-        new Error('Database error')
-      )
+      mockOffset.mockRejectedValue(new Error('Database error'))
 
       const request = new Request('http://localhost/api/companies')
       const response = await GET(request)
@@ -86,8 +89,7 @@ describe('Companies API Route', () => {
 
   describe('POST /api/companies', () => {
     it('should create a company with required name', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
+      mockValues.mockResolvedValue(undefined)
 
       const request = new Request('http://localhost/api/companies', {
         method: 'POST',
@@ -125,8 +127,7 @@ describe('Companies API Route', () => {
     })
 
     it('should handle optional fields as null', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
+      mockValues.mockResolvedValue(undefined)
 
       const request = new Request('http://localhost/api/companies', {
         method: 'POST',
@@ -144,8 +145,7 @@ describe('Companies API Route', () => {
     })
 
     it('should handle database errors on create', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockRejectedValue(new Error('Insert failed'))
+      mockValues.mockRejectedValue(new Error('Insert failed'))
 
       const request = new Request('http://localhost/api/companies', {
         method: 'POST',

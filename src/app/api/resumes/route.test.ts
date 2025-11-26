@@ -10,15 +10,24 @@ vi.mock('@/lib/auth', () => ({
   }),
 }))
 
+// Create mock functions for chained calls
+const mockOrderBy = vi.fn()
+const mockSelectWhere = vi.fn()
+const mockValues = vi.fn()
+
 // Mock the database module
 vi.mock('@/lib/db', () => ({
   db: {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    orderBy: vi.fn().mockResolvedValue([]),
-    insert: vi.fn().mockReturnThis(),
-    values: vi.fn().mockResolvedValue(undefined),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: mockOrderBy,
+        })),
+      })),
+    })),
+    insert: vi.fn(() => ({
+      values: mockValues,
+    })),
   },
   resumes: { id: 'id', userId: 'user_id', updatedAt: 'updated_at' },
 }))
@@ -28,20 +37,39 @@ vi.mock('uuid', () => ({
   v4: () => 'resume-uuid-123',
 }))
 
+// Mock drizzle-orm
+vi.mock('drizzle-orm', () => ({
+  eq: vi.fn((field, value) => ({ field, value })),
+  desc: vi.fn((field) => ({ field, direction: 'desc' })),
+}))
+
 describe('Resumes API Route', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    // Reset the mock implementations for each test
+    const { db } = await import('@/lib/db')
+    ;(db.select as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn((condition: { value?: string } | undefined) => {
+          // For POST route - returns without orderBy
+          if (condition?.value === 'resume-uuid-123') {
+            return mockSelectWhere()
+          }
+          // For GET route - returns with orderBy
+          return { orderBy: mockOrderBy }
+        }),
+      })),
+    }))
   })
 
   describe('GET /api/resumes', () => {
     it('should return all resumes for current user', async () => {
-      const { db } = await import('@/lib/db')
       const mockResumes = [
         { id: 'resume-1', name: 'Master Resume', isMaster: true, userId: 'user-123' },
         { id: 'resume-2', name: 'Job-Specific Resume', isMaster: false, userId: 'user-123' },
       ]
 
-      vi.mocked(db.select().from().where().orderBy).mockResolvedValue(mockResumes)
+      mockOrderBy.mockResolvedValue(mockResumes)
 
       const response = await GET()
       const data = await response.json()
@@ -53,8 +81,7 @@ describe('Resumes API Route', () => {
     })
 
     it('should return empty array when user has no resumes', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().where().orderBy).mockResolvedValue([])
+      mockOrderBy.mockResolvedValue([])
 
       const response = await GET()
       const data = await response.json()
@@ -65,8 +92,7 @@ describe('Resumes API Route', () => {
     })
 
     it('should handle database errors', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().where().orderBy).mockRejectedValue(new Error('DB error'))
+      mockOrderBy.mockRejectedValue(new Error('DB error'))
 
       const response = await GET()
       const data = await response.json()
@@ -78,7 +104,6 @@ describe('Resumes API Route', () => {
 
   describe('POST /api/resumes', () => {
     it('should create a new resume with provided data', async () => {
-      const { db } = await import('@/lib/db')
       const mockCreatedResume = {
         id: 'resume-uuid-123',
         name: 'My Resume',
@@ -87,8 +112,8 @@ describe('Resumes API Route', () => {
         isMaster: false,
       }
 
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
-      vi.mocked(db.select().from().where).mockResolvedValue([mockCreatedResume])
+      mockValues.mockResolvedValue(undefined)
+      mockSelectWhere.mockResolvedValue([mockCreatedResume])
 
       const request = new Request('http://localhost/api/resumes', {
         method: 'POST',
@@ -108,9 +133,8 @@ describe('Resumes API Route', () => {
     })
 
     it('should use default name when not provided', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
-      vi.mocked(db.select().from().where).mockResolvedValue([
+      mockValues.mockResolvedValue(undefined)
+      mockSelectWhere.mockResolvedValue([
         { id: 'resume-uuid-123', name: 'Untitled Resume', userId: 'user-123' },
       ])
 
@@ -127,8 +151,7 @@ describe('Resumes API Route', () => {
     })
 
     it('should handle database errors on create', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockRejectedValue(new Error('Insert failed'))
+      mockValues.mockRejectedValue(new Error('Insert failed'))
 
       const request = new Request('http://localhost/api/resumes', {
         method: 'POST',

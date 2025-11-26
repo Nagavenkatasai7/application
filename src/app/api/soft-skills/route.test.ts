@@ -10,15 +10,23 @@ vi.mock('@/lib/auth', () => ({
   }),
 }))
 
+// Create mock functions for chained calls
+const mockOrderBy = vi.fn()
+const mockValues = vi.fn()
+
 // Mock the database module
 vi.mock('@/lib/db', () => ({
   db: {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    orderBy: vi.fn().mockResolvedValue([]),
-    insert: vi.fn().mockReturnThis(),
-    values: vi.fn().mockResolvedValue(undefined),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: mockOrderBy,
+        })),
+      })),
+    })),
+    insert: vi.fn(() => ({
+      values: mockValues,
+    })),
   },
   softSkills: { id: 'id', userId: 'user_id', updatedAt: 'updated_at' },
 }))
@@ -35,7 +43,6 @@ describe('Soft Skills API Route', () => {
 
   describe('GET /api/soft-skills', () => {
     it('should return all soft skills for current user', async () => {
-      const { db } = await import('@/lib/db')
       const mockSkills = [
         {
           id: 'skill-1',
@@ -51,7 +58,7 @@ describe('Soft Skills API Route', () => {
         },
       ]
 
-      vi.mocked(db.select().from().where().orderBy).mockResolvedValue(mockSkills)
+      mockOrderBy.mockResolvedValue(mockSkills)
 
       const response = await GET()
       const data = await response.json()
@@ -63,8 +70,7 @@ describe('Soft Skills API Route', () => {
     })
 
     it('should return empty array when user has no soft skills', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().where().orderBy).mockResolvedValue([])
+      mockOrderBy.mockResolvedValue([])
 
       const response = await GET()
       const data = await response.json()
@@ -75,8 +81,7 @@ describe('Soft Skills API Route', () => {
     })
 
     it('should handle database errors', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().where().orderBy).mockRejectedValue(new Error('DB error'))
+      mockOrderBy.mockRejectedValue(new Error('DB error'))
 
       const response = await GET()
       const data = await response.json()
@@ -88,8 +93,7 @@ describe('Soft Skills API Route', () => {
 
   describe('POST /api/soft-skills', () => {
     it('should create a new soft skill assessment', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
+      mockValues.mockResolvedValue(undefined)
 
       const request = new Request('http://localhost/api/soft-skills', {
         method: 'POST',
@@ -127,8 +131,7 @@ describe('Soft Skills API Route', () => {
     })
 
     it('should handle database errors on create', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockRejectedValue(new Error('Insert failed'))
+      mockValues.mockRejectedValue(new Error('Insert failed'))
 
       const request = new Request('http://localhost/api/soft-skills', {
         method: 'POST',

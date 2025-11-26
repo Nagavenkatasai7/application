@@ -10,15 +10,23 @@ vi.mock('@/lib/auth', () => ({
   }),
 }))
 
+// Create mock functions for chained calls
+const mockOrderBy = vi.fn()
+const mockValues = vi.fn()
+
 // Mock the database module
 vi.mock('@/lib/db', () => ({
   db: {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    orderBy: vi.fn().mockResolvedValue([]),
-    insert: vi.fn().mockReturnThis(),
-    values: vi.fn().mockResolvedValue(undefined),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: mockOrderBy,
+        })),
+      })),
+    })),
+    insert: vi.fn(() => ({
+      values: mockValues,
+    })),
   },
   applications: { id: 'id', userId: 'user_id', status: 'status', createdAt: 'created_at' },
 }))
@@ -35,13 +43,12 @@ describe('Applications API Route', () => {
 
   describe('GET /api/applications', () => {
     it('should return all applications for current user', async () => {
-      const { db } = await import('@/lib/db')
       const mockApplications = [
         { id: 'app-1', jobId: 'job-1', status: 'saved', userId: 'user-123' },
         { id: 'app-2', jobId: 'job-2', status: 'applied', userId: 'user-123' },
       ]
 
-      vi.mocked(db.select().from().where().orderBy).mockResolvedValue(mockApplications)
+      mockOrderBy.mockResolvedValue(mockApplications)
 
       const request = new Request('http://localhost/api/applications')
       const response = await GET(request)
@@ -54,14 +61,13 @@ describe('Applications API Route', () => {
     })
 
     it('should filter by status when provided', async () => {
-      const { db } = await import('@/lib/db')
       const allApplications = [
         { id: 'app-1', jobId: 'job-1', status: 'saved', userId: 'user-123' },
         { id: 'app-2', jobId: 'job-2', status: 'applied', userId: 'user-123' },
         { id: 'app-3', jobId: 'job-3', status: 'saved', userId: 'user-123' },
       ]
 
-      vi.mocked(db.select().from().where().orderBy).mockResolvedValue(allApplications)
+      mockOrderBy.mockResolvedValue(allApplications)
 
       const request = new Request('http://localhost/api/applications?status=saved')
       const response = await GET(request)
@@ -72,8 +78,7 @@ describe('Applications API Route', () => {
     })
 
     it('should return empty array when no applications exist', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().where().orderBy).mockResolvedValue([])
+      mockOrderBy.mockResolvedValue([])
 
       const request = new Request('http://localhost/api/applications')
       const response = await GET(request)
@@ -84,8 +89,7 @@ describe('Applications API Route', () => {
     })
 
     it('should handle database errors', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select().from().where().orderBy).mockRejectedValue(new Error('DB error'))
+      mockOrderBy.mockRejectedValue(new Error('DB error'))
 
       const request = new Request('http://localhost/api/applications')
       const response = await GET(request)
@@ -98,8 +102,7 @@ describe('Applications API Route', () => {
 
   describe('POST /api/applications', () => {
     it('should create a new application with jobId', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
+      mockValues.mockResolvedValue(undefined)
 
       const request = new Request('http://localhost/api/applications', {
         method: 'POST',
@@ -122,8 +125,7 @@ describe('Applications API Route', () => {
     })
 
     it('should use default status when not provided', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockResolvedValue(undefined)
+      mockValues.mockResolvedValue(undefined)
 
       const request = new Request('http://localhost/api/applications', {
         method: 'POST',
@@ -153,8 +155,7 @@ describe('Applications API Route', () => {
     })
 
     it('should handle database errors on create', async () => {
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.insert().values).mockRejectedValue(new Error('Insert failed'))
+      mockValues.mockRejectedValue(new Error('Insert failed'))
 
       const request = new Request('http://localhost/api/applications', {
         method: 'POST',

@@ -3,12 +3,12 @@ import { renderHook, act } from '@testing-library/react'
 import { useReducedMotion } from './use-reduced-motion'
 
 describe('useReducedMotion Hook', () => {
-  let mockMatchMedia: ReturnType<typeof vi.fn>
+  const originalMatchMedia = window.matchMedia
   let mediaQueryCallback: ((event: MediaQueryListEvent) => void) | null = null
 
-  beforeEach(() => {
-    mockMatchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: false,
+  const createMockMatchMedia = (matches: boolean = false) => {
+    return vi.fn().mockImplementation((query: string) => ({
+      matches,
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -20,22 +20,21 @@ describe('useReducedMotion Hook', () => {
       }),
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
-    }))
-    window.matchMedia = mockMatchMedia
+    })) as unknown as typeof window.matchMedia
+  }
+
+  beforeEach(() => {
+    window.matchMedia = createMockMatchMedia(false)
   })
 
   afterEach(() => {
+    window.matchMedia = originalMatchMedia
     mediaQueryCallback = null
     vi.clearAllMocks()
   })
 
   it('should return false when reduced motion is not preferred', () => {
-    mockMatchMedia.mockImplementation((query: string) => ({
-      matches: false,
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }))
+    window.matchMedia = createMockMatchMedia(false)
 
     const { result } = renderHook(() => useReducedMotion())
 
@@ -43,12 +42,7 @@ describe('useReducedMotion Hook', () => {
   })
 
   it('should return true when reduced motion is preferred', () => {
-    mockMatchMedia.mockImplementation((query: string) => ({
-      matches: true,
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }))
+    window.matchMedia = createMockMatchMedia(true)
 
     const { result } = renderHook(() => useReducedMotion())
 
@@ -58,17 +52,17 @@ describe('useReducedMotion Hook', () => {
   it('should call matchMedia with correct query', () => {
     renderHook(() => useReducedMotion())
 
-    expect(mockMatchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)')
+    expect(window.matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)')
   })
 
   it('should add event listener on mount', () => {
     const addEventListener = vi.fn()
-    mockMatchMedia.mockImplementation((query: string) => ({
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: false,
       media: query,
       addEventListener,
       removeEventListener: vi.fn(),
-    }))
+    })) as unknown as typeof window.matchMedia
 
     renderHook(() => useReducedMotion())
 
@@ -77,7 +71,7 @@ describe('useReducedMotion Hook', () => {
 
   it('should remove event listener on unmount', () => {
     const removeEventListener = vi.fn()
-    mockMatchMedia.mockImplementation((query: string) => ({
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: false,
       media: query,
       addEventListener: vi.fn((event: string, callback: () => void) => {
@@ -86,7 +80,7 @@ describe('useReducedMotion Hook', () => {
         }
       }),
       removeEventListener,
-    }))
+    })) as unknown as typeof window.matchMedia
 
     const { unmount } = renderHook(() => useReducedMotion())
     unmount()
@@ -95,7 +89,7 @@ describe('useReducedMotion Hook', () => {
   })
 
   it('should update when preference changes to reduced motion', () => {
-    mockMatchMedia.mockImplementation((query: string) => ({
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: false,
       media: query,
       addEventListener: vi.fn((event: string, callback: (event: MediaQueryListEvent) => void) => {
@@ -104,7 +98,7 @@ describe('useReducedMotion Hook', () => {
         }
       }),
       removeEventListener: vi.fn(),
-    }))
+    })) as unknown as typeof window.matchMedia
 
     const { result } = renderHook(() => useReducedMotion())
     expect(result.current).toBe(false)
@@ -120,7 +114,7 @@ describe('useReducedMotion Hook', () => {
   })
 
   it('should update when preference changes to no reduced motion', () => {
-    mockMatchMedia.mockImplementation((query: string) => ({
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: true,
       media: query,
       addEventListener: vi.fn((event: string, callback: (event: MediaQueryListEvent) => void) => {
@@ -129,7 +123,7 @@ describe('useReducedMotion Hook', () => {
         }
       }),
       removeEventListener: vi.fn(),
-    }))
+    })) as unknown as typeof window.matchMedia
 
     const { result } = renderHook(() => useReducedMotion())
     expect(result.current).toBe(true)
