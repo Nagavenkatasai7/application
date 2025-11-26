@@ -88,11 +88,14 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Initialize database
-        run: pnpm db:push
-
       - name: Build application
         run: pnpm build
+
+      - name: Initialize database
+        run: |
+          mkdir -p data
+          pnpm db:push
+          ls -la data/
 
       - name: Run E2E tests
         run: pnpm test:e2e --project=chromium
