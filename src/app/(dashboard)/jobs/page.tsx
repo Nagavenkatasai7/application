@@ -78,8 +78,9 @@ export default function JobsPage() {
     }
   };
 
-  const handleCreateApplication = (_jobId: string) => {
+  const handleCreateApplication = (jobId: string) => {
     // Navigate to application creation - to be implemented
+    console.log("Creating application for job:", jobId);
     toast.info("Application creation coming soon");
   };
 

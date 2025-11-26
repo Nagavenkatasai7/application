@@ -40,9 +40,8 @@ vi.mock('@/components/ui/sidebar', () => ({
   SidebarMenu: ({ children }: { children: React.ReactNode }) => (
     <ul data-testid="sidebar-menu">{children}</ul>
   ),
-  SidebarMenuButton: ({ children, asChild, isActive, tooltip, size }: {
+  SidebarMenuButton: ({ children, isActive, tooltip, size }: {
     children: React.ReactNode;
-    asChild?: boolean;
     isActive?: boolean;
     tooltip?: string;
     size?: string;
