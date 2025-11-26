@@ -28,19 +28,15 @@ test.describe("Jobs Page", () => {
   test("should display either empty state or jobs list", async ({ page }) => {
     await page.goto("/jobs");
 
-    // Wait for any loading to complete
-    await page.waitForLoadState("networkidle");
+    // Wait for page to be ready - either loading indicator disappears or content appears
+    await page.waitForLoadState("domcontentloaded");
 
-    // Either empty state or job list should be visible
+    // Wait for either empty state or job cards to be visible
     const emptyState = page.getByText("No jobs saved");
     const jobsList = page.locator("[data-slot='card']");
 
-    // One of these should be visible
-    const emptyStateVisible = await emptyState.isVisible().catch(() => false);
-    const jobsListVisible =
-      (await jobsList.count().catch(() => 0)) > 0;
-
-    expect(emptyStateVisible || jobsListVisible).toBe(true);
+    // Wait for either to appear (with timeout)
+    await expect(emptyState.or(jobsList.first())).toBeVisible({ timeout: 15000 });
   });
 });
 
@@ -179,7 +175,7 @@ test.describe("Job Form Validation", () => {
 
 test.describe("Job Creation Flow", () => {
   // Increased timeout for slower browsers (webkit/mobile-safari)
-  test.setTimeout(60000);
+  test.setTimeout(90000);
 
   test("should successfully create a job and show it in the list", async ({ page }) => {
     // Generate unique job title and company to avoid conflicts
@@ -189,40 +185,63 @@ test.describe("Job Creation Flow", () => {
 
     await page.goto("/jobs/new");
 
-    // Fill in the form
-    await page.getByLabel(/job title/i).fill(uniqueTitle);
-    await page.getByLabel(/company name/i).fill(uniqueCompany);
-    await page.getByLabel(/location/i).fill("Remote");
-    await page.getByLabel(/job description/i).fill(
+    // Wait for form to be ready
+    const titleInput = page.getByLabel(/job title/i);
+    await expect(titleInput).toBeVisible({ timeout: 10000 });
+
+    // Fill in the form with explicit waits to ensure values are set
+    await titleInput.click();
+    await titleInput.fill(uniqueTitle);
+    await expect(titleInput).toHaveValue(uniqueTitle);
+
+    const companyInput = page.getByLabel(/company name/i);
+    await companyInput.click();
+    await companyInput.fill(uniqueCompany);
+    await expect(companyInput).toHaveValue(uniqueCompany);
+
+    const locationInput = page.getByLabel(/location/i);
+    await locationInput.click();
+    await locationInput.fill("Remote");
+
+    const descriptionInput = page.getByLabel(/job description/i);
+    await descriptionInput.click();
+    await descriptionInput.fill(
+      "This is a test job description created by E2E tests."
+    );
+    await expect(descriptionInput).toHaveValue(
       "This is a test job description created by E2E tests."
     );
 
     // Submit the form
-    await page.getByRole("button", { name: /save job/i }).click();
+    const saveButton = page.getByRole("button", { name: /save job/i });
+    await expect(saveButton).toBeEnabled();
+    await saveButton.click();
 
-    // Wait for either redirect or success toast (whichever comes first)
-    await Promise.race([
-      page.waitForURL(/\/jobs$/, { timeout: 30000 }),
-      page.getByText(/job created successfully/i).waitFor({ timeout: 30000 }),
-    ]);
+    // Wait for navigation to jobs page OR success toast
+    await expect(async () => {
+      const currentUrl = page.url();
+      const hasJobsUrl = currentUrl.endsWith("/jobs");
+      const successToast = await page.getByText(/job created successfully/i).isVisible().catch(() => false);
+      expect(hasJobsUrl || successToast).toBe(true);
+    }).toPass({ timeout: 30000 });
 
     // Navigate to jobs page if not already there
     if (!page.url().endsWith("/jobs")) {
       await page.goto("/jobs");
     }
 
-    // Wait for page to settle
-    await page.waitForLoadState("networkidle");
+    // Wait for page content to load
+    await page.waitForLoadState("domcontentloaded");
 
     // Should show the job in the list
-    await expect(page.getByText(uniqueTitle)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(uniqueCompany).first()).toBeVisible();
+    await expect(page.getByText(uniqueTitle)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(uniqueCompany).first()).toBeVisible({ timeout: 5000 });
   });
 });
 
 test.describe("Job Card Interaction", () => {
   // Increased timeout for slower browsers
-  test.setTimeout(60000);
+  test.setTimeout(90000);
 
   test("should show job card menu on hover", async ({ page, isMobile }) => {
     // Skip on mobile as hover behavior differs
@@ -231,31 +250,52 @@ test.describe("Job Card Interaction", () => {
     // First create a job to ensure we have something to interact with
     const timestamp = Date.now();
     const uniqueTitle = `Menu Test ${timestamp}`;
+    const uniqueCompany = `Menu Company ${timestamp}`;
 
     await page.goto("/jobs/new");
-    await page.getByLabel(/job title/i).fill(uniqueTitle);
-    await page.getByLabel(/company name/i).fill(`Menu Company ${timestamp}`);
-    await page.getByLabel(/job description/i).fill(
+
+    // Wait for form and fill with explicit value checks
+    const titleInput = page.getByLabel(/job title/i);
+    await expect(titleInput).toBeVisible({ timeout: 10000 });
+    await titleInput.click();
+    await titleInput.fill(uniqueTitle);
+    await expect(titleInput).toHaveValue(uniqueTitle);
+
+    const companyInput = page.getByLabel(/company name/i);
+    await companyInput.click();
+    await companyInput.fill(uniqueCompany);
+    await expect(companyInput).toHaveValue(uniqueCompany);
+
+    const descriptionInput = page.getByLabel(/job description/i);
+    await descriptionInput.click();
+    await descriptionInput.fill(
       "This is a test job for menu interaction testing."
     );
-    await page.getByRole("button", { name: /save job/i }).click();
+    await expect(descriptionInput).toHaveValue(
+      "This is a test job for menu interaction testing."
+    );
 
-    // Wait for either redirect or success toast
-    await Promise.race([
-      page.waitForURL(/\/jobs$/, { timeout: 30000 }),
-      page.getByText(/job created successfully/i).waitFor({ timeout: 30000 }),
-    ]);
+    // Submit the form
+    const saveButton = page.getByRole("button", { name: /save job/i });
+    await expect(saveButton).toBeEnabled();
+    await saveButton.click();
 
-    // Navigate to jobs page if not already there
-    if (!page.url().endsWith("/jobs")) {
-      await page.goto("/jobs");
-    }
+    // Wait for navigation to complete - use waitForURL with a longer timeout
+    await page.waitForURL(/\/jobs$/, { timeout: 45000 }).catch(async () => {
+      // If URL wait times out, check for success toast and then navigate
+      const successToast = await page.getByText(/job created successfully/i).isVisible().catch(() => false);
+      if (successToast) {
+        await page.goto("/jobs");
+      }
+    });
 
-    await page.waitForLoadState("networkidle");
+    // Ensure we're on the jobs page
+    await page.waitForURL(/\/jobs$/, { timeout: 10000 });
+    await page.waitForLoadState("domcontentloaded");
 
     // Wait for job to appear
     const jobTitle = page.getByText(uniqueTitle);
-    await expect(jobTitle).toBeVisible({ timeout: 10000 });
+    await expect(jobTitle).toBeVisible({ timeout: 15000 });
 
     // Hover on the card to reveal menu button
     await jobTitle.hover();
