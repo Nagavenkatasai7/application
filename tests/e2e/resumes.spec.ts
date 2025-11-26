@@ -237,3 +237,52 @@ test.describe("Resume Upload Flow", () => {
     }
   });
 });
+
+test.describe("Resume Detail Page", () => {
+  test("should show error heading for non-existent resume", async ({ page }) => {
+    // Navigate to a non-existent resume detail page
+    await page.goto("/resumes/non-existent-id");
+
+    // Should display error heading
+    await expect(
+      page.getByRole("heading", { name: /resume not found/i })
+    ).toBeVisible({ timeout: 15000 });
+  });
+
+  test("should display back to resumes button on error page", async ({ page }) => {
+    await page.goto("/resumes/non-existent-id");
+
+    // Wait for error state to load
+    await page.waitForLoadState("domcontentloaded");
+
+    // Should have a button to go back to resumes
+    await expect(
+      page.getByRole("button", { name: /back to resumes/i })
+    ).toBeVisible({ timeout: 15000 });
+  });
+});
+
+test.describe("Resume Edit Page", () => {
+  test("should show error heading for non-existent resume", async ({ page }) => {
+    // Navigate to a non-existent resume edit page
+    await page.goto("/resumes/non-existent-id/edit");
+
+    // Should display error heading
+    await expect(
+      page.getByRole("heading", { name: /resume not found/i })
+    ).toBeVisible({ timeout: 15000 });
+  });
+
+  test("should display back to resumes button on edit error page", async ({ page }) => {
+    await page.goto("/resumes/non-existent-id/edit");
+
+    // Wait for error state to load
+    await page.waitForLoadState("domcontentloaded");
+
+    // Should have a button to go back to resumes
+    await expect(
+      page.getByRole("button", { name: /back to resumes/i })
+    ).toBeVisible({ timeout: 15000 });
+  });
+});
+

@@ -12,6 +12,7 @@ import {
 import { ResumeCard } from "@/components/resumes/resume-card";
 import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { ResumeResponse } from "@/lib/validations/resume";
 
@@ -57,6 +58,7 @@ function ResumeCardSkeleton() {
 }
 
 export default function ResumesPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -82,9 +84,7 @@ export default function ResumesPage() {
   };
 
   const handleEdit = (id: string) => {
-    // Navigate to resume edit page - to be implemented
-    console.log("Editing resume:", id);
-    toast.info("Resume editing coming soon");
+    router.push(`/resumes/${id}`);
   };
 
   return (
