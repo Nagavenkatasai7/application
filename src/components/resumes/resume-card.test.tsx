@@ -56,8 +56,8 @@ describe("ResumeCard Component", () => {
       expect(screen.getByText(/Nov 14, 2023/)).toBeInTheDocument();
     });
 
-    it("should not render date when createdAt is null", () => {
-      render(<ResumeCard resume={createMockResume({ createdAt: null })} />);
+    it("should not render date when createdAt is undefined", () => {
+      render(<ResumeCard resume={createMockResume({ createdAt: undefined })} />);
       expect(screen.queryByText(/Created/)).not.toBeInTheDocument();
     });
 

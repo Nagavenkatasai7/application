@@ -63,9 +63,8 @@ describe("ResumesPage", () => {
 
       renderWithQueryClient(<ResumesPage />);
 
-      const skeletons = screen.getAllByTestId
-        ? document.querySelectorAll("[data-slot='skeleton']")
-        : document.querySelectorAll(".animate-pulse");
+      // Look for skeleton elements or loading indicators
+      const skeletons = document.querySelectorAll("[data-slot='skeleton'], .animate-pulse");
 
       expect(skeletons.length).toBeGreaterThan(0);
     });
