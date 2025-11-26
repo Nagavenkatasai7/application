@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
 import { db, jobs } from "@/lib/db";
-import { desc, eq } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 
 // GET /api/jobs - List all jobs
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const platform = searchParams.get("platform");
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    let query = db.select().from(jobs).orderBy(desc(jobs.createdAt));
+    const query = db.select().from(jobs).orderBy(desc(jobs.createdAt));
 
-    // Note: Platform filtering would need additional where clause
-    // For now, return all jobs with pagination
     const allJobs = await query.limit(limit).offset(offset);
 
     return NextResponse.json({

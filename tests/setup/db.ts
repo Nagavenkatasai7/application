@@ -119,9 +119,6 @@ export async function seedTestDb(db: ReturnType<typeof createTestDb>['db']) {
   await db.insert(schema.companies).values({
     id: 'company-1',
     name: 'Acme Corp',
-    domain: 'acme.com',
-    industry: 'Technology',
-    size: '100-500',
   })
 
   // Insert test job
@@ -141,13 +138,13 @@ export async function seedTestDb(db: ReturnType<typeof createTestDb>['db']) {
   await db.insert(schema.resumes).values({
     id: 'resume-1',
     userId,
-    title: 'Software Engineer Resume',
-    type: 'master',
-    content: JSON.stringify({
+    name: 'Software Engineer Resume',
+    isMaster: true,
+    content: {
       name: 'Test User',
       email: 'test@example.com',
       experience: [],
-    }),
+    },
   })
 
   return { userId }
