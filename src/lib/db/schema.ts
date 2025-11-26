@@ -31,6 +31,10 @@ export const resumes = sqliteTable(
     content: text("content", { mode: "json" }).notNull(), // Structured resume data (JSON)
     templateId: text("template_id").references(() => templates.id),
     isMaster: integer("is_master", { mode: "boolean" }).default(false),
+    // PDF upload fields
+    originalFileName: text("original_file_name"), // Original uploaded PDF filename
+    fileSize: integer("file_size"), // File size in bytes
+    extractedText: text("extracted_text"), // Raw text extracted from PDF
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
