@@ -39,3 +39,14 @@ export {
   type JobMatchAnalysisResult,
   type SkillExtractionResult,
 } from "./prompts";
+
+// Tailoring service exports
+export {
+  tailorResume,
+  tailorRequestSchema,
+  TailorError,
+  type TailorRequest,
+  type TailorResponse,
+  type TailorChangeSummary,
+  type TailorRequestInput,
+} from "./tailor";
