@@ -27,13 +27,12 @@ export default defineConfig({
         'src/tests/**',
         'src/mocks/**',
       ],
-      // Thresholds commented out during development - enable when coverage improves
-      // thresholds: {
-      //   lines: 80,
-      //   functions: 80,
-      //   branches: 75,
-      //   statements: 80,
-      // },
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 75,
+        statements: 80,
+      },
     },
     // Timeout for async tests
     testTimeout: 10000,

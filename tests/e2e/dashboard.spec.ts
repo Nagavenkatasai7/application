@@ -39,10 +39,13 @@ test.describe('Dashboard', () => {
     await expect(page.getByText('Context Alignment')).toBeVisible()
   })
 
-  test('should have working sidebar navigation', async ({ page }) => {
+  test('should have working sidebar navigation', async ({ page, isMobile }) => {
+    // Skip on mobile - sidebar is hidden and accessed via drawer
+    test.skip(isMobile, 'Sidebar navigation test is for desktop only')
+
     await page.goto('/')
 
-    // Check sidebar is visible
+    // Check sidebar is visible on desktop
     const sidebar = page.locator('[data-sidebar="sidebar"]')
     await expect(sidebar).toBeVisible()
 
