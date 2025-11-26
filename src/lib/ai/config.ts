@@ -14,6 +14,7 @@ export type AIProvider = z.infer<typeof aiProviderEnum>;
  * - claude-3-haiku: Fast and efficient for simple tasks
  */
 export const aiModelEnum = z.enum([
+  "claude-sonnet-4-5-20250929",
   "claude-3-5-sonnet-20241022",
   "claude-3-5-haiku-20241022",
   "claude-3-opus-20240229",
@@ -29,7 +30,7 @@ export type AIModel = z.infer<typeof aiModelEnum>;
 export const aiConfigSchema = z.object({
   provider: aiProviderEnum.default("anthropic"),
   apiKey: z.string().min(1, "API key is required"),
-  model: aiModelEnum.default("claude-3-5-sonnet-20241022"),
+  model: aiModelEnum.default("claude-sonnet-4-5-20250929"),
   temperature: z.number().min(0).max(2).default(0.7),
   maxTokens: z.number().positive().default(4000),
   timeout: z.number().positive().default(60000), // 60 seconds
@@ -60,7 +61,7 @@ export function loadAIConfig(): AIConfig {
     apiKey: process.env.AI_PROVIDER === "openai"
       ? process.env.OPENAI_API_KEY
       : process.env.ANTHROPIC_API_KEY,
-    model: process.env.AI_MODEL || "claude-3-5-sonnet-20241022",
+    model: process.env.AI_MODEL || "claude-sonnet-4-5-20250929",
     temperature: parseFloat(process.env.AI_TEMPERATURE || "0.7"),
     maxTokens: parseInt(process.env.AI_MAX_TOKENS || "4000", 10),
     timeout: parseInt(process.env.AI_TIMEOUT || "60000", 10),
@@ -138,13 +139,13 @@ export function resetAIConfigCache(): void {
 export const MODEL_CONFIGS = {
   // Best for complex reasoning and creative writing
   resumeTailoring: {
-    model: "claude-3-5-sonnet-20241022" as AIModel,
+    model: "claude-sonnet-4-5-20250929" as AIModel,
     temperature: 0.7,
     maxTokens: 4000,
   },
   // Best for analytical tasks
   jobMatchAnalysis: {
-    model: "claude-3-5-sonnet-20241022" as AIModel,
+    model: "claude-sonnet-4-5-20250929" as AIModel,
     temperature: 0.3,
     maxTokens: 2000,
   },
@@ -156,13 +157,13 @@ export const MODEL_CONFIGS = {
   },
   // Creative summary generation
   summaryGeneration: {
-    model: "claude-3-5-sonnet-20241022" as AIModel,
+    model: "claude-sonnet-4-5-20250929" as AIModel,
     temperature: 0.7,
     maxTokens: 500,
   },
   // Bullet point improvements
   bulletOptimization: {
-    model: "claude-3-5-sonnet-20241022" as AIModel,
+    model: "claude-sonnet-4-5-20250929" as AIModel,
     temperature: 0.5,
     maxTokens: 1500,
   },

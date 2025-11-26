@@ -52,6 +52,7 @@ describe("AI Configuration", () => {
   describe("aiModelEnum", () => {
     it("should accept valid Anthropic models", () => {
       const anthropicModels: AIModel[] = [
+        "claude-sonnet-4-5-20250929",
         "claude-3-5-sonnet-20241022",
         "claude-3-5-haiku-20241022",
         "claude-3-opus-20240229",
@@ -100,7 +101,7 @@ describe("AI Configuration", () => {
 
       const result = aiConfigSchema.parse(config);
       expect(result.provider).toBe("anthropic");
-      expect(result.model).toBe("claude-3-5-sonnet-20241022");
+      expect(result.model).toBe("claude-sonnet-4-5-20250929");
       expect(result.temperature).toBe(0.7);
       expect(result.maxTokens).toBe(4000);
       expect(result.timeout).toBe(60000);
@@ -234,7 +235,7 @@ describe("AI Configuration", () => {
       const config = loadAIConfig();
 
       expect(config.provider).toBe("anthropic");
-      expect(config.model).toBe("claude-3-5-sonnet-20241022");
+      expect(config.model).toBe("claude-sonnet-4-5-20250929");
       expect(config.temperature).toBe(0.7);
       expect(config.maxTokens).toBe(4000);
       expect(config.timeout).toBe(60000);
