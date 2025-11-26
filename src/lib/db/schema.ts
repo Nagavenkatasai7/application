@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 
 // Users table
 export const users = sqliteTable("users", {
@@ -86,8 +86,8 @@ export const jobs = sqliteTable(
       .$defaultFn(() => new Date()),
   },
   (table) => [
-    uniqueIndex("jobs_company_idx").on(table.companyId),
-    uniqueIndex("jobs_platform_idx").on(table.platform),
+    index("jobs_company_idx").on(table.companyId),
+    index("jobs_platform_idx").on(table.platform),
   ]
 );
 
@@ -145,7 +145,7 @@ export const applications = sqliteTable(
   },
   (table) => [
     uniqueIndex("applications_user_job_idx").on(table.userId, table.jobId),
-    uniqueIndex("applications_status_idx").on(table.status),
+    index("applications_status_idx").on(table.status),
   ]
 );
 
