@@ -72,8 +72,51 @@ vi.mock('framer-motion', async () => {
       section: 'section',
       article: 'article',
       aside: 'aside',
+      svg: 'svg',
+      path: 'path',
     },
     AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
+    useMotionValue: (initial: number = 0) => {
+      let value = initial
+      const listeners: Array<(v: number) => void> = []
+      return {
+        set: (v: number) => {
+          value = v
+          listeners.forEach(listener => listener(v))
+        },
+        get: () => value,
+        on: (_event: string, callback: (v: number) => void) => {
+          listeners.push(callback)
+          // Immediately call with current value
+          callback(value)
+          return () => {
+            const index = listeners.indexOf(callback)
+            if (index > -1) listeners.splice(index, 1)
+          }
+        },
+      }
+    },
+    useSpring: (source: { get: () => number; on: (event: string, cb: (v: number) => void) => () => void }) => source,
+    useTransform: <T,>(source: { get: () => number; on: (event: string, cb: (v: number) => void) => () => void }, transform: (v: number) => T) => {
+      const listeners: Array<(v: T) => void> = []
+      // Subscribe to source changes
+      source.on('change', (v: number) => {
+        const transformed = transform(v)
+        listeners.forEach(listener => listener(transformed))
+      })
+      return {
+        get: () => transform(source.get()),
+        on: (_event: string, callback: (v: T) => void) => {
+          listeners.push(callback)
+          // Immediately call with current value
+          callback(transform(source.get()))
+          return () => {
+            const index = listeners.indexOf(callback)
+            if (index > -1) listeners.splice(index, 1)
+          }
+        },
+      }
+    },
   }
 })
 

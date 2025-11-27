@@ -19,6 +19,7 @@ import {
   FileText,
 } from "lucide-react";
 import type { JobResponse } from "@/lib/validations/job";
+import { HoverGrow } from "@/components/layout/page-transition";
 
 interface JobCardProps {
   job: JobResponse;
@@ -48,7 +49,8 @@ export function JobCard({ job, onDelete, onCreateApplication }: JobCardProps) {
   };
 
   return (
-    <Card className="group relative overflow-hidden transition-colors hover:bg-card-hover">
+    <HoverGrow scale={1.01}>
+      <Card className="group relative overflow-hidden transition-colors hover:bg-card-hover">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -147,6 +149,7 @@ export function JobCard({ job, onDelete, onCreateApplication }: JobCardProps) {
           )}
         </div>
       </CardContent>
-    </Card>
+      </Card>
+    </HoverGrow>
   );
 }

@@ -166,16 +166,17 @@ describe('Dashboard Page', () => {
       expect(screen.getByText('7')).toBeInTheDocument() // Applications
     })
 
-    it('should show loading skeletons while fetching', async () => {
+    it('should show loading shimmer while fetching', async () => {
       mockFetch.mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 1000))
       )
 
       const { container } = renderWithProviders(<DashboardPage />)
 
-      // Should show skeleton elements while loading
-      const skeletons = container.querySelectorAll("[data-slot='skeleton']")
-      expect(skeletons.length).toBeGreaterThanOrEqual(1)
+      // Should show shimmer loading elements while loading
+      // Shimmer components have bg-muted class
+      const shimmers = container.querySelectorAll('.bg-muted')
+      expect(shimmers.length).toBeGreaterThanOrEqual(1)
     })
   })
 

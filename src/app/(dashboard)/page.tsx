@@ -3,11 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   PageTransition,
   StaggerContainer,
   StaggerItem,
+  AnimatedNumber,
+  HoverGrow,
+  Shimmer,
 } from "@/components/layout/page-transition";
 import {
   FileUp,
@@ -159,23 +161,25 @@ export default function DashboardPage() {
         <StaggerContainer className="grid gap-4 md:grid-cols-3">
           {quickActions.map((action) => (
             <StaggerItem key={action.title}>
-              <Card className="group relative overflow-hidden transition-colors hover:bg-card-hover h-full">
-                <Link href={action.href} className="absolute inset-0 z-10" />
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                      <action.icon className="h-5 w-5 text-primary" />
+              <HoverGrow scale={1.02}>
+                <Card className="group relative overflow-hidden transition-colors hover:bg-card-hover h-full">
+                  <Link href={action.href} className="absolute inset-0 z-10" />
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <action.icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardTitle className="text-base">{action.title}</CardTitle>
-                  <CardDescription className="mt-1">
-                    {action.description}
-                  </CardDescription>
-                </CardContent>
-              </Card>
+                  </CardHeader>
+                  <CardContent>
+                    <CardTitle className="text-base">{action.title}</CardTitle>
+                    <CardDescription className="mt-1">
+                      {action.description}
+                    </CardDescription>
+                  </CardContent>
+                </Card>
+              </HoverGrow>
             </StaggerItem>
           ))}
         </StaggerContainer>
@@ -195,7 +199,13 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent>
                     {statsValues[index].isLoading ? (
-                      <Skeleton className="h-8 w-12" />
+                      <Shimmer height="2rem" width="3rem" className="mb-1" />
+                    ) : typeof statsValues[index].value === "number" ? (
+                      <AnimatedNumber
+                        value={statsValues[index].value as number}
+                        className="text-2xl font-bold"
+                        duration={0.8}
+                      />
                     ) : (
                       <div className="text-2xl font-bold">
                         {statsValues[index].value ?? 0}
