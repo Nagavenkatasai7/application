@@ -3,6 +3,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ResumeForm } from "./resume-form";
 
+// Helper to wait for dynamic component to load
+const waitForDropzone = async () => {
+  await waitFor(() => {
+    expect(screen.getByText(/drag & drop your pdf here/i)).toBeInTheDocument();
+  }, { timeout: 3000 });
+};
+
 describe("ResumeForm Component", () => {
   const mockOnSubmit = vi.fn();
 
@@ -39,8 +46,9 @@ describe("ResumeForm Component", () => {
       expect(screen.getByLabelText(/resume name/i)).toBeInTheDocument();
     });
 
-    it("should render dropzone", () => {
+    it("should render dropzone", async () => {
       render(<ResumeForm onSubmit={mockOnSubmit} />);
+      await waitForDropzone();
       expect(screen.getByText(/drag & drop your pdf here/i)).toBeInTheDocument();
     });
 
@@ -84,6 +92,7 @@ describe("ResumeForm Component", () => {
     it("should auto-fill name from filename when name is empty", async () => {
       const user = userEvent.setup();
       render(<ResumeForm onSubmit={mockOnSubmit} />);
+      await waitForDropzone();
 
       const file = createMockFile("my-awesome-resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
@@ -105,6 +114,7 @@ describe("ResumeForm Component", () => {
           defaultValues={{ name: "Existing Name" }}
         />
       );
+      await waitForDropzone();
 
       const file = createMockFile("new-resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
@@ -117,13 +127,16 @@ describe("ResumeForm Component", () => {
     it("should display selected file", async () => {
       const user = userEvent.setup();
       render(<ResumeForm onSubmit={mockOnSubmit} />);
+      await waitForDropzone();
 
       const file = createMockFile("resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
 
       await user.upload(input, file);
 
-      expect(screen.getByText("resume.pdf")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText("resume.pdf")).toBeInTheDocument();
+      });
     });
   });
 
@@ -131,6 +144,7 @@ describe("ResumeForm Component", () => {
     it("should call onSubmit with form data and file when valid", async () => {
       const user = userEvent.setup();
       render(<ResumeForm onSubmit={mockOnSubmit} />);
+      await waitForDropzone();
 
       const file = createMockFile("resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
@@ -162,6 +176,7 @@ describe("ResumeForm Component", () => {
     it("should show error when name is empty", async () => {
       const user = userEvent.setup();
       render(<ResumeForm onSubmit={mockOnSubmit} />);
+      await waitForDropzone();
 
       const file = createMockFile("resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
@@ -200,8 +215,9 @@ describe("ResumeForm Component", () => {
       expect(screen.getByLabelText(/resume name/i)).toBeDisabled();
     });
 
-    it("should disable dropzone when loading", () => {
+    it("should disable dropzone when loading", async () => {
       render(<ResumeForm onSubmit={mockOnSubmit} isLoading />);
+      await waitForDropzone();
       expect(screen.getByLabelText(/upload pdf file/i)).toBeDisabled();
     });
   });
@@ -215,13 +231,16 @@ describe("ResumeForm Component", () => {
     it("should enable upload button when file is selected", async () => {
       const user = userEvent.setup();
       render(<ResumeForm onSubmit={mockOnSubmit} />);
+      await waitForDropzone();
 
       const file = createMockFile("resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
 
       await user.upload(input, file);
 
-      expect(screen.getByRole("button", { name: /upload resume/i })).toBeEnabled();
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /upload resume/i })).toBeEnabled();
+      });
     });
   });
 
@@ -229,16 +248,22 @@ describe("ResumeForm Component", () => {
     it("should clear file when remove button is clicked", async () => {
       const user = userEvent.setup();
       render(<ResumeForm onSubmit={mockOnSubmit} />);
+      await waitForDropzone();
 
       const file = createMockFile("resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
 
       await user.upload(input, file);
-      expect(screen.getByText("resume.pdf")).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(screen.getByText("resume.pdf")).toBeInTheDocument();
+      });
 
       await user.click(screen.getByRole("button", { name: /remove file/i }));
 
-      expect(screen.queryByText("resume.pdf")).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByText("resume.pdf")).not.toBeInTheDocument();
+      });
       expect(screen.getByText(/drag & drop your pdf here/i)).toBeInTheDocument();
     });
   });

@@ -4,11 +4,29 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PdfDropzone } from "./pdf-dropzone";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
+
+// Lazy load PdfDropzone as it includes heavy dependencies
+const PdfDropzone = dynamic(
+  () => import("./pdf-dropzone").then((mod) => ({ default: mod.PdfDropzone })),
+  {
+    loading: () => (
+      <div className="border-2 border-dashed rounded-lg p-8">
+        <div className="flex flex-col items-center gap-4">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+      </div>
+    ),
+    ssr: false, // Disable SSR as file upload is client-only
+  }
+);
 
 const formSchema = z.object({
   name: z

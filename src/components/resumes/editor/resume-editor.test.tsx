@@ -1,7 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { ResumeEditor } from "./resume-editor";
 import type { ResumeContent } from "@/lib/validations/resume";
+
+// Helper to wait for dynamic sections to load
+const waitForSections = async () => {
+  await waitFor(() => {
+    expect(screen.getByText(/contact information/i)).toBeInTheDocument();
+  }, { timeout: 3000 });
+};
 
 const createMockContent = (): ResumeContent => ({
   contact: {
@@ -55,73 +62,81 @@ const createMockContent = (): ResumeContent => ({
 
 describe("ResumeEditor", () => {
   describe("rendering", () => {
-    it("should render all section titles", () => {
+    it("should render all section titles", async () => {
       const onChange = vi.fn();
       const content = createMockContent();
       render(<ResumeEditor content={content} onChange={onChange} />);
+      await waitForSections();
 
       // All section cards should be rendered
       expect(document.querySelector('[data-slot="card-title"]')).toBeInTheDocument();
     });
 
-    it("should render contact section", () => {
+    it("should render contact section", async () => {
       const onChange = vi.fn();
       const content = createMockContent();
       render(<ResumeEditor content={content} onChange={onChange} />);
+      await waitForSections();
 
       expect(screen.getByDisplayValue("John Doe")).toBeInTheDocument();
       expect(screen.getByDisplayValue("john@example.com")).toBeInTheDocument();
     });
 
-    it("should render summary section", () => {
+    it("should render summary section", async () => {
       const onChange = vi.fn();
       const content = createMockContent();
       render(<ResumeEditor content={content} onChange={onChange} />);
+      await waitForSections();
 
       expect(screen.getByDisplayValue(content.summary!)).toBeInTheDocument();
     });
 
-    it("should render experience section", () => {
+    it("should render experience section", async () => {
       const onChange = vi.fn();
       const content = createMockContent();
       render(<ResumeEditor content={content} onChange={onChange} />);
+      await waitForSections();
 
       expect(screen.getByDisplayValue("Acme Inc.")).toBeInTheDocument();
       expect(screen.getByDisplayValue("Software Engineer")).toBeInTheDocument();
     });
 
-    it("should render education section", () => {
+    it("should render education section", async () => {
       const onChange = vi.fn();
       const content = createMockContent();
       render(<ResumeEditor content={content} onChange={onChange} />);
+      await waitForSections();
 
       expect(screen.getByDisplayValue("Stanford University")).toBeInTheDocument();
       expect(screen.getByDisplayValue("Bachelor of Science")).toBeInTheDocument();
     });
 
-    it("should render skills section", () => {
+    it("should render skills section", async () => {
       const onChange = vi.fn();
       const content = createMockContent();
       render(<ResumeEditor content={content} onChange={onChange} />);
+      await waitForSections();
 
       expect(screen.getByText("JavaScript")).toBeInTheDocument();
       expect(screen.getByText("TypeScript")).toBeInTheDocument();
     });
 
-    it("should render projects section", () => {
+    it("should render projects section", async () => {
       const onChange = vi.fn();
       const content = createMockContent();
       render(<ResumeEditor content={content} onChange={onChange} />);
+      await waitForSections();
 
       expect(screen.getByDisplayValue("Resume Maker")).toBeInTheDocument();
     });
   });
 
   describe("disabled state", () => {
-    it("should disable all sections when disabled", () => {
+    it("should disable all sections when disabled", async () => {
       const onChange = vi.fn();
       const content = createMockContent();
       render(<ResumeEditor content={content} onChange={onChange} disabled />);
+      await waitForSections();
 
       // Contact fields should be disabled
       expect(screen.getByDisplayValue("John Doe")).toBeDisabled();
@@ -130,7 +145,7 @@ describe("ResumeEditor", () => {
   });
 
   describe("empty content", () => {
-    it("should handle empty content", () => {
+    it("should handle empty content", async () => {
       const onChange = vi.fn();
       const emptyContent: ResumeContent = {
         contact: { name: "", email: "" },
@@ -139,6 +154,7 @@ describe("ResumeEditor", () => {
         skills: { technical: [], soft: [] },
       };
       render(<ResumeEditor content={emptyContent} onChange={onChange} />);
+      await waitForSections();
 
       // Should render without crashing
       expect(screen.getByText(/no work experience added/i)).toBeInTheDocument();

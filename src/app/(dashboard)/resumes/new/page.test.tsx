@@ -4,6 +4,13 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import NewResumePage from "./page";
 
+// Helper to wait for dynamic component to load
+const waitForDropzone = async () => {
+  await waitFor(() => {
+    expect(screen.getByText(/drag & drop your pdf here/i)).toBeInTheDocument();
+  }, { timeout: 3000 });
+};
+
 const mockPush = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -73,8 +80,9 @@ describe("NewResumePage", () => {
       expect(link).toHaveAttribute("href", "/resumes");
     });
 
-    it("should render resume form", () => {
+    it("should render resume form", async () => {
       renderWithQueryClient(<NewResumePage />);
+      await waitForDropzone();
       expect(screen.getByText(/drag & drop your pdf here/i)).toBeInTheDocument();
     });
   });
@@ -92,6 +100,7 @@ describe("NewResumePage", () => {
       });
 
       renderWithQueryClient(<NewResumePage />);
+      await waitForDropzone();
 
       const file = createMockFile("resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
@@ -130,6 +139,7 @@ describe("NewResumePage", () => {
       });
 
       renderWithQueryClient(<NewResumePage />);
+      await waitForDropzone();
 
       const file = createMockFile("resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
@@ -157,6 +167,7 @@ describe("NewResumePage", () => {
       });
 
       renderWithQueryClient(<NewResumePage />);
+      await waitForDropzone();
 
       const file = createMockFile("my-resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
@@ -189,6 +200,7 @@ describe("NewResumePage", () => {
       );
 
       renderWithQueryClient(<NewResumePage />);
+      await waitForDropzone();
 
       const file = createMockFile("resume.pdf");
       const input = screen.getByLabelText(/upload pdf file/i);
