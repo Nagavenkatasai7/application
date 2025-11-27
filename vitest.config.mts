@@ -33,8 +33,17 @@ export default defineConfig({
         'src/lib/ai/context.ts',
         'src/lib/ai/soft-skills.ts',
         'src/lib/ai/company.ts',
-        // Exclude PDF generator as it uses @react-pdf/renderer which requires complex rendering
+        // Exclude PDF files as they use @react-pdf/renderer which requires complex rendering
         'src/lib/pdf/generator.tsx',
+        'src/lib/pdf/parser.ts',
+        // Exclude database files (tested indirectly via API routes)
+        'src/lib/db/index.ts',
+        'src/lib/db/schema.ts',
+        // Exclude re-export index files
+        'src/lib/ai/index.ts',
+        'src/stores/index.ts',
+        // Exclude visually-hidden component (accessibility utility)
+        'src/components/ui/visually-hidden.tsx',
         // Exclude shadcn Select component (Radix UI has complex portal testing requirements)
         'src/components/ui/select.tsx',
         // Exclude Progress component (simple UI component)
@@ -45,6 +54,8 @@ export default defineConfig({
         'src/app/(dashboard)/modules/context/page.tsx',
         'src/app/(dashboard)/modules/soft-skills/page.tsx',
         'src/app/(dashboard)/modules/company/page.tsx',
+        // Exclude settings page (tested via E2E tests)
+        'src/app/(dashboard)/settings/page.tsx',
         // Exclude error boundary files (Next.js App Router specific, tested via E2E)
         'src/app/**/error.tsx',
         'src/app/**/not-found.tsx',

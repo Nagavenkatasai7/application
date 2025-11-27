@@ -2,14 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, PUT } from "./route";
 import { DEFAULT_SETTINGS } from "@/lib/validations/settings";
 
-// Mock user
-const mockUser = {
-  id: "user-123",
-  email: "test@example.com",
-  name: "Test User",
-  createdAt: new Date(),
-};
-
 // Mock settings record
 const mockSettingsRecord = {
   id: "settings-456",
@@ -41,20 +33,11 @@ vi.mock("drizzle-orm", () => ({
 
 // Mock db
 vi.mock("@/lib/db", () => {
-  const mockSelect = vi.fn().mockReturnThis();
-  const mockFrom = vi.fn().mockReturnThis();
-  const mockWhere = vi.fn().mockReturnThis();
-  const mockLimit = vi.fn().mockResolvedValue([]);
-  const mockInsert = vi.fn().mockReturnThis();
-  const mockValues = vi.fn().mockResolvedValue(undefined);
-  const mockUpdate = vi.fn().mockReturnThis();
-  const mockSet = vi.fn().mockReturnThis();
-
   return {
     db: {
-      select: mockSelect,
-      insert: mockInsert,
-      update: mockUpdate,
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
     },
   };
 });
