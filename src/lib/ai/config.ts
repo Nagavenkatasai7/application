@@ -173,6 +173,12 @@ export const MODEL_CONFIGS = {
     temperature: 0.7,
     maxTokens: 1000,
   },
+  // Company research and intelligence
+  companyResearch: {
+    model: "claude-sonnet-4-5-20250929" as AIModel,
+    temperature: 0.5,
+    maxTokens: 4000,
+  },
 } as const;
 
 /**
