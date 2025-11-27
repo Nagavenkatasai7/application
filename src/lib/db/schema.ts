@@ -119,6 +119,26 @@ export const softSkills = sqliteTable(
   ]
 );
 
+// User settings table
+export const userSettings = sqliteTable(
+  "user_settings",
+  {
+    id: text("id").primaryKey(), // UUID
+    userId: text("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    settings: text("settings", { mode: "json" }).notNull(), // Full settings JSON
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [uniqueIndex("user_settings_user_idx").on(table.userId)]
+);
+
 // Applications tracking table
 export const applications = sqliteTable(
   "applications",
@@ -174,3 +194,6 @@ export type NewApplication = typeof applications.$inferInsert;
 
 export type Template = typeof templates.$inferSelect;
 export type NewTemplate = typeof templates.$inferInsert;
+
+export type UserSettingsRecord = typeof userSettings.$inferSelect;
+export type NewUserSettingsRecord = typeof userSettings.$inferInsert;
