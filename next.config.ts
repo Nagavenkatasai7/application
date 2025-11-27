@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   // Standalone output for Docker deployment
   output: "standalone",
 
+  // External packages that should not be bundled by Turbopack
+  // This allows native Node.js modules to work properly
+  serverExternalPackages: ["pdf-parse", "better-sqlite3"],
+
   // Optimize images
   images: {
     formats: ["image/avif", "image/webp"],

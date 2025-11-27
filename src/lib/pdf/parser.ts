@@ -1,3 +1,7 @@
+// pdf-parse v2 is configured as serverExternalPackages in next.config.ts
+// This allows it to run as a native Node.js module
+// v2 uses a class-based API with PDFParse class
+
 import { PDFParse } from "pdf-parse";
 
 export interface ParsedPdf {
@@ -16,29 +20,35 @@ export interface ParsedPdf {
  * @returns Parsed PDF data including text and metadata
  */
 export async function parsePdf(buffer: Buffer): Promise<ParsedPdf> {
-  const parser = new PDFParse({ data: buffer });
+  let parser: PDFParse | null = null;
 
   try {
-    // Get text content
+    // pdf-parse v2 uses class-based API with data option for buffers
+    parser = new PDFParse({ data: buffer });
+
+    // Extract text content
     const textResult = await parser.getText();
 
-    // Get info/metadata
+    // Extract metadata
     const infoResult = await parser.getInfo();
 
     return {
-      text: textResult.text.trim(),
-      numPages: infoResult.total,
+      text: textResult.text?.trim() || "",
+      numPages: textResult.total || 0,
       info: {
-        title: infoResult.info?.Title,
-        author: infoResult.info?.Author,
-        creator: infoResult.info?.Creator,
+        title: infoResult.info?.Title as string | undefined,
+        author: infoResult.info?.Author as string | undefined,
+        creator: infoResult.info?.Creator as string | undefined,
       },
     };
   } catch (error) {
     console.error("Error parsing PDF:", error);
     throw new Error("Failed to parse PDF file");
   } finally {
-    await parser.destroy();
+    // Always destroy the parser to free resources
+    if (parser) {
+      await parser.destroy();
+    }
   }
 }
 

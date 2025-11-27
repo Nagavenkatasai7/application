@@ -42,7 +42,7 @@ export const resumes = sqliteTable(
       .notNull()
       .$defaultFn(() => new Date()),
   },
-  (table) => [uniqueIndex("resumes_user_idx").on(table.userId)]
+  (table) => [index("resumes_user_idx").on(table.userId)]
 );
 
 // Companies table
