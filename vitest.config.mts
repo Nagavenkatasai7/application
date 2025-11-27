@@ -45,6 +45,10 @@ export default defineConfig({
         'src/app/(dashboard)/modules/context/page.tsx',
         'src/app/(dashboard)/modules/soft-skills/page.tsx',
         'src/app/(dashboard)/modules/company/page.tsx',
+        // Exclude error boundary files (Next.js App Router specific, tested via E2E)
+        'src/app/**/error.tsx',
+        'src/app/**/not-found.tsx',
+        'src/app/global-error.tsx',
       ],
       thresholds: {
         // Lowered thresholds to accommodate module pages and AI services tested via E2E
