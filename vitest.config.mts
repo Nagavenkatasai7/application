@@ -28,6 +28,11 @@ export default defineConfig({
         'src/mocks/**',
         // Exclude AI API integration code that requires complex mocking
         'src/lib/ai/tailor.ts',
+        'src/lib/ai/uniqueness.ts',
+        // Exclude PDF generator as it uses @react-pdf/renderer which requires complex rendering
+        'src/lib/pdf/generator.tsx',
+        // Exclude shadcn Select component (Radix UI has complex portal testing requirements)
+        'src/components/ui/select.tsx',
       ],
       thresholds: {
         // Lowered thresholds to accommodate new pages that are tested via E2E
