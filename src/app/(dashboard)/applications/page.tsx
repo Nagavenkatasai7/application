@@ -117,12 +117,13 @@ function ApplicationCardSkeleton() {
 }
 
 function getStatusIcon(status: ApplicationStatus) {
+  // Icons are decorative (status is conveyed via text), so mark as aria-hidden
   const icons: Record<ApplicationStatus, React.ReactNode> = {
-    saved: <Bookmark className="h-3 w-3" />,
-    applied: <Send className="h-3 w-3" />,
-    interviewing: <Calendar className="h-3 w-3" />,
-    offered: <Trophy className="h-3 w-3" />,
-    rejected: <XCircle className="h-3 w-3" />,
+    saved: <Bookmark className="h-3 w-3" aria-hidden="true" />,
+    applied: <Send className="h-3 w-3" aria-hidden="true" />,
+    interviewing: <Calendar className="h-3 w-3" aria-hidden="true" />,
+    offered: <Trophy className="h-3 w-3" aria-hidden="true" />,
+    rejected: <XCircle className="h-3 w-3" aria-hidden="true" />,
   };
   return icons[status];
 }
@@ -172,8 +173,14 @@ function ApplicationCard({ application, onStatusChange, onDelete }: ApplicationC
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                <MoreVertical className="h-4 w-4" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                aria-label={`Actions for ${application.job.title || 'application'}`}
+              >
+                <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                <span className="sr-only">Open menu</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
