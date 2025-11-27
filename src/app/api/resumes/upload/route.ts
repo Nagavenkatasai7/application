@@ -5,6 +5,9 @@ import { v4 as uuidv4 } from "uuid";
 import { eq } from "drizzle-orm";
 import { extractTextFromPdf } from "@/lib/pdf/parser";
 import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES } from "@/lib/validations/resume";
+import { parseResumeText } from "@/lib/ai/resume-parser";
+import { isAIConfigured } from "@/lib/ai/config";
+import type { ResumeContent } from "@/lib/validations/resume";
 
 // POST /api/resumes/upload - Upload a PDF resume
 export async function POST(request: Request) {
@@ -65,21 +68,38 @@ export async function POST(request: Request) {
       // Continue without extracted text - not a fatal error
     }
 
-    // Generate resume name from filename or use provided name
+    // Default content structure
+    let parsedContent: ResumeContent = {
+      contact: { name: "", email: "" },
+      experiences: [],
+      education: [],
+      skills: { technical: [], soft: [] },
+    };
+
+    // Try to parse resume content using AI if text was extracted and AI is configured
+    if (extractedText && isAIConfigured()) {
+      try {
+        parsedContent = await parseResumeText(extractedText);
+        console.log("Successfully parsed resume with AI");
+      } catch (error) {
+        console.error("Error parsing resume with AI:", error);
+        // Continue with default empty content - user can edit manually
+      }
+    }
+
+    // Generate resume name from filename, parsed name, or use provided name
     const resumeName =
-      name || file.name.replace(/\.pdf$/i, "") || "Untitled Resume";
+      name ||
+      (parsedContent.contact.name && parsedContent.contact.name.trim()) ||
+      file.name.replace(/\.pdf$/i, "") ||
+      "Untitled Resume";
 
     // Create resume record
     const newResume = {
       id: uuidv4(),
       userId: user.id,
       name: resumeName,
-      content: {
-        contact: { name: "", email: "" },
-        experiences: [],
-        education: [],
-        skills: { technical: [], soft: [] },
-      },
+      content: parsedContent,
       originalFileName: file.name,
       fileSize: file.size,
       extractedText: extractedText || null,

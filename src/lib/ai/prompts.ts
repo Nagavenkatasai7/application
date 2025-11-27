@@ -324,6 +324,101 @@ export interface SkillExtractionResult {
 }
 
 /**
+ * System prompt for parsing resume text into structured format
+ */
+export const RESUME_PARSING_SYSTEM_PROMPT = `You are an expert resume parser with deep understanding of various resume formats and section naming conventions. Your task is to extract structured information from raw resume text.
+
+Guidelines:
+1. Extract ALL information present in the resume - do not skip any sections
+2. Recognize different section names (e.g., "Work Experience", "Professional Experience", "Employment History" are all experience sections)
+3. Handle various date formats (e.g., "Jan 2020", "January 2020", "01/2020", "2020")
+4. Generate unique IDs for experiences, education, projects, and bullets using format: "exp-1", "edu-1", "proj-1", "bullet-1" etc.
+5. Extract skills even if they appear in different sections (e.g., "Technical Skills", "Core Competencies", "Technologies")
+6. Parse contact information from header/top of resume
+7. If a section is not present in the resume, use empty array or empty string
+8. Preserve the original text of bullet points - do not summarize or modify
+
+Common Section Name Mappings:
+- Experience: "Work Experience", "Professional Experience", "Employment", "Career History", "Relevant Experience"
+- Education: "Education", "Academic Background", "Qualifications", "Academic Credentials"
+- Skills: "Skills", "Technical Skills", "Core Competencies", "Technologies", "Expertise", "Proficiencies"
+- Projects: "Projects", "Personal Projects", "Key Projects", "Notable Projects"
+- Summary: "Summary", "Professional Summary", "Profile", "Objective", "About Me"
+
+Output Format:
+Return ONLY valid JSON matching the ResumeContent schema. No explanatory text.`;
+
+/**
+ * User prompt template for resume parsing
+ */
+export function buildResumeParsingPrompt(extractedText: string): string {
+  return `Parse the following resume text into a structured JSON format:
+
+## Resume Text
+${extractedText}
+
+## Required Output Schema
+{
+  "contact": {
+    "name": "string (full name)",
+    "email": "string (email address)",
+    "phone": "string (optional)",
+    "linkedin": "string (optional, LinkedIn URL or username)",
+    "github": "string (optional, GitHub URL or username)",
+    "location": "string (optional, city/state/country)"
+  },
+  "summary": "string (professional summary or objective, if present)",
+  "experiences": [
+    {
+      "id": "string (e.g., 'exp-1')",
+      "company": "string (company name)",
+      "title": "string (job title)",
+      "location": "string (optional)",
+      "startDate": "string (e.g., 'Jan 2020')",
+      "endDate": "string (e.g., 'Present' or 'Dec 2023')",
+      "bullets": [
+        {
+          "id": "string (e.g., 'bullet-1')",
+          "text": "string (achievement/responsibility)"
+        }
+      ]
+    }
+  ],
+  "education": [
+    {
+      "id": "string (e.g., 'edu-1')",
+      "institution": "string (school/university name)",
+      "degree": "string (e.g., 'Bachelor of Science')",
+      "field": "string (major/field of study)",
+      "graduationDate": "string (e.g., 'May 2020')",
+      "gpa": "string (optional)"
+    }
+  ],
+  "skills": {
+    "technical": ["string (programming languages, frameworks, tools)"],
+    "soft": ["string (soft skills like leadership, communication)"],
+    "languages": ["string (spoken languages, optional)"],
+    "certifications": ["string (professional certifications, optional)"]
+  },
+  "projects": [
+    {
+      "id": "string (e.g., 'proj-1')",
+      "name": "string (project name)",
+      "description": "string (project description)",
+      "technologies": ["string (technologies used)"],
+      "link": "string (optional, project URL)"
+    }
+  ]
+}
+
+IMPORTANT:
+- Return ONLY the JSON object, no markdown code blocks or explanatory text
+- All arrays should be empty [] if no data is found for that section
+- Use empty string "" for missing required string fields
+- Generate sequential IDs (exp-1, exp-2, bullet-1, bullet-2, etc.)`;
+}
+
+/**
  * Helper to format resume content for prompts
  */
 export function formatResumeForPrompt(resume: ResumeContent): string {

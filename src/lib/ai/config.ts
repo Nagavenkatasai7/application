@@ -137,6 +137,12 @@ export function resetAIConfigCache(): void {
  * Model-specific configurations for different use cases
  */
 export const MODEL_CONFIGS = {
+  // Parse resume text into structured format
+  resumeParsing: {
+    model: "claude-sonnet-4-5-20250929" as AIModel,
+    temperature: 0.1, // Low temperature for consistent parsing
+    maxTokens: 4000,
+  },
   // Best for complex reasoning and creative writing
   resumeTailoring: {
     model: "claude-sonnet-4-5-20250929" as AIModel,

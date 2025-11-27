@@ -16,10 +16,9 @@ export interface ParsedPdf {
  * @returns Parsed PDF data including text and metadata
  */
 export async function parsePdf(buffer: Buffer): Promise<ParsedPdf> {
-  let parser: PDFParse | null = null;
-  try {
-    parser = new PDFParse({ data: buffer });
+  const parser = new PDFParse({ data: buffer });
 
+  try {
     // Get text content
     const textResult = await parser.getText();
 
@@ -39,9 +38,7 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedPdf> {
     console.error("Error parsing PDF:", error);
     throw new Error("Failed to parse PDF file");
   } finally {
-    if (parser) {
-      await parser.destroy();
-    }
+    await parser.destroy();
   }
 }
 
