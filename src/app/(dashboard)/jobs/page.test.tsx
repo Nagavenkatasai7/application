@@ -15,6 +15,14 @@ vi.mock("next/link", () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
+// Mock next/navigation
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: mockPush,
+  }),
+}));
+
 // Mock sonner toast
 vi.mock("sonner", () => ({
   toast: {
@@ -88,6 +96,7 @@ describe("JobsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConfirm.mockReturnValue(true);
+    mockPush.mockClear();
   });
 
   describe("header", () => {
@@ -387,18 +396,28 @@ describe("JobsPage", () => {
   });
 
   describe("create application", () => {
-    it("should show info toast when create application is clicked", async () => {
+    it("should call applications API and redirect when create application is clicked", async () => {
       const { toast } = await import("sonner");
       const user = userEvent.setup();
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: mockJobs,
-            meta: { total: 2 },
-          }),
-      });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: mockJobs,
+              meta: { total: 2 },
+            }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: { id: "app-123", jobId: "job-1", status: "saved" },
+            }),
+        });
 
       renderWithProviders(<JobsPage />);
 
@@ -412,7 +431,70 @@ describe("JobsPage", () => {
       const createButton = screen.getByText("Create Application");
       await user.click(createButton);
 
-      expect(toast.info).toHaveBeenCalledWith("Application creation coming soon");
+      // Verify API was called
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/applications",
+          expect.objectContaining({
+            method: "POST",
+            body: JSON.stringify({ jobId: "job-1", status: "saved" }),
+          })
+        );
+      });
+
+      // Verify redirect
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith("/applications");
+      });
+
+      // Verify success toast
+      expect(toast.success).toHaveBeenCalledWith(
+        "Application created! Redirecting to applications..."
+      );
+    });
+
+    it("should show error toast when create application fails", async () => {
+      const { toast } = await import("sonner");
+      const user = userEvent.setup();
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: mockJobs,
+              meta: { total: 2 },
+            }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          json: () =>
+            Promise.resolve({
+              success: false,
+              error: { message: "Application already exists" },
+            }),
+        });
+
+      renderWithProviders(<JobsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Software Engineer")).toBeInTheDocument();
+      });
+
+      const menuButtons = screen.getAllByRole("button", { name: /open menu/i });
+      await user.click(menuButtons[0]);
+
+      const createButton = screen.getByText("Create Application");
+      await user.click(createButton);
+
+      // Verify error toast
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith("Application already exists");
+      });
+
+      // Should not redirect
+      expect(mockPush).not.toHaveBeenCalled();
     });
   });
 

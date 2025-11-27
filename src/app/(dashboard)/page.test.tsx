@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import DashboardPage from './page'
 
 // Mock next/link
@@ -9,16 +10,66 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+// Mock fetch
+const mockFetch = vi.fn()
+global.fetch = mockFetch
+
+const createTestQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+    },
+  })
+
+const renderWithProviders = (ui: React.ReactElement) => {
+  const queryClient = createTestQueryClient()
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+  )
+}
+
 describe('Dashboard Page', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Default mock responses for API calls
+    mockFetch.mockImplementation((url: string) => {
+      if (url === '/api/resumes') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ success: true, data: [], meta: { total: 5 } }),
+        })
+      }
+      if (url === '/api/jobs') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ success: true, data: [], meta: { total: 3 } }),
+        })
+      }
+      if (url === '/api/applications') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ success: true, data: [], meta: { total: 7 } }),
+        })
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [], meta: { total: 0 } }),
+      })
+    })
+  })
+
   describe('Welcome Section', () => {
-    it('should render welcome heading', () => {
-      render(<DashboardPage />)
+    it('should render welcome heading', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Welcome to Resume Tailor')).toBeInTheDocument()
     })
 
-    it('should render welcome description', () => {
-      render(<DashboardPage />)
+    it('should render welcome description', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(
         screen.getByText(/Create highly optimized, ATS-compliant resumes/)
@@ -27,8 +78,8 @@ describe('Dashboard Page', () => {
   })
 
   describe('Quick Actions', () => {
-    it('should render Upload Resume action', () => {
-      render(<DashboardPage />)
+    it('should render Upload Resume action', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Upload Resume')).toBeInTheDocument()
       expect(
@@ -36,15 +87,15 @@ describe('Dashboard Page', () => {
       ).toBeInTheDocument()
     })
 
-    it('should render Import Job action', () => {
-      render(<DashboardPage />)
+    it('should render Import Job action', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Import Job')).toBeInTheDocument()
       expect(screen.getByText('Paste a job URL or description')).toBeInTheDocument()
     })
 
-    it('should render Tailor Resume action', () => {
-      render(<DashboardPage />)
+    it('should render Tailor Resume action', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Tailor Resume')).toBeInTheDocument()
       expect(
@@ -52,8 +103,8 @@ describe('Dashboard Page', () => {
       ).toBeInTheDocument()
     })
 
-    it('should have links to appropriate pages', () => {
-      render(<DashboardPage />)
+    it('should have links to appropriate pages', async () => {
+      renderWithProviders(<DashboardPage />)
 
       // Find links by href
       const resumesLinks = screen.getAllByRole('link').filter(
@@ -69,58 +120,74 @@ describe('Dashboard Page', () => {
   })
 
   describe('Stats Overview', () => {
-    it('should render Overview heading', () => {
-      render(<DashboardPage />)
+    it('should render Overview heading', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Overview')).toBeInTheDocument()
     })
 
-    it('should render Resumes stat', () => {
-      render(<DashboardPage />)
+    it('should render Resumes stat', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Resumes')).toBeInTheDocument()
       expect(screen.getByText('Total resumes created')).toBeInTheDocument()
     })
 
-    it('should render Jobs Saved stat', () => {
-      render(<DashboardPage />)
+    it('should render Jobs Saved stat', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Jobs Saved')).toBeInTheDocument()
       expect(screen.getByText('Jobs in your pipeline')).toBeInTheDocument()
     })
 
-    it('should render Applications stat', () => {
-      render(<DashboardPage />)
+    it('should render Applications stat', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Applications')).toBeInTheDocument()
       expect(screen.getByText('Applications tracked')).toBeInTheDocument()
     })
 
-    it('should render Match Score stat', () => {
-      render(<DashboardPage />)
+    it('should render Match Score stat', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Match Score')).toBeInTheDocument()
       expect(screen.getByText('Average ATS score')).toBeInTheDocument()
     })
 
-    it('should show placeholder values', () => {
-      render(<DashboardPage />)
+    it('should show fetched stats values', async () => {
+      renderWithProviders(<DashboardPage />)
 
-      // Initial values are "0" for most stats
-      const zeroValues = screen.getAllByText('0')
-      expect(zeroValues.length).toBeGreaterThanOrEqual(3)
+      // Wait for the stats to load
+      await waitFor(() => {
+        expect(screen.getByText('5')).toBeInTheDocument() // Resumes
+      })
+
+      expect(screen.getByText('3')).toBeInTheDocument() // Jobs
+      expect(screen.getByText('7')).toBeInTheDocument() // Applications
+    })
+
+    it('should show loading skeletons while fetching', async () => {
+      mockFetch.mockImplementation(
+        () => new Promise((resolve) => setTimeout(resolve, 1000))
+      )
+
+      const { container } = renderWithProviders(<DashboardPage />)
+
+      // Should show skeleton elements while loading
+      const skeletons = container.querySelectorAll("[data-slot='skeleton']")
+      expect(skeletons.length).toBeGreaterThanOrEqual(1)
     })
   })
 
   describe('Analysis Modules Preview', () => {
-    it('should render Analysis Modules heading', () => {
-      render(<DashboardPage />)
+    it('should render Analysis Modules heading', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Analysis Modules')).toBeInTheDocument()
     })
 
-    it('should render Uniqueness Extraction module', () => {
-      render(<DashboardPage />)
+    it('should render Uniqueness Extraction module', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Uniqueness Extraction')).toBeInTheDocument()
       expect(
@@ -128,8 +195,8 @@ describe('Dashboard Page', () => {
       ).toBeInTheDocument()
     })
 
-    it('should render Impact Quantification module', () => {
-      render(<DashboardPage />)
+    it('should render Impact Quantification module', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Impact Quantification')).toBeInTheDocument()
       expect(
@@ -137,8 +204,8 @@ describe('Dashboard Page', () => {
       ).toBeInTheDocument()
     })
 
-    it('should render Context Alignment module', () => {
-      render(<DashboardPage />)
+    it('should render Context Alignment module', async () => {
+      renderWithProviders(<DashboardPage />)
 
       expect(screen.getByText('Context Alignment')).toBeInTheDocument()
       expect(
@@ -146,8 +213,8 @@ describe('Dashboard Page', () => {
       ).toBeInTheDocument()
     })
 
-    it('should show Coming Soon badges', () => {
-      render(<DashboardPage />)
+    it('should show Coming Soon badges', async () => {
+      renderWithProviders(<DashboardPage />)
 
       const comingSoonBadges = screen.getAllByText('Coming Soon')
       expect(comingSoonBadges.length).toBe(3) // One for each module
@@ -155,15 +222,15 @@ describe('Dashboard Page', () => {
   })
 
   describe('Layout and Structure', () => {
-    it('should have proper page structure', () => {
-      const { container } = render(<DashboardPage />)
+    it('should have proper page structure', async () => {
+      const { container } = renderWithProviders(<DashboardPage />)
 
       // Should have sections
       expect(container.querySelector('.space-y-8')).toBeInTheDocument()
     })
 
-    it('should render all sections in order', () => {
-      render(<DashboardPage />)
+    it('should render all sections in order', async () => {
+      renderWithProviders(<DashboardPage />)
 
       const headings = screen.getAllByRole('heading')
 

@@ -12,6 +12,7 @@ import {
 import { JobCard } from "@/components/jobs/job-card";
 import { Plus, Briefcase } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { JobResponse } from "@/lib/validations/job";
 
@@ -38,6 +39,19 @@ async function deleteJob(id: string): Promise<void> {
   }
 }
 
+async function createApplication(jobId: string): Promise<{ success: boolean; data: unknown }> {
+  const response = await fetch("/api/applications", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jobId, status: "saved" }),
+  });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error?.message || "Failed to create application");
+  }
+  return response.json();
+}
+
 function JobCardSkeleton() {
   return (
     <Card>
@@ -61,6 +75,8 @@ export default function JobsPage() {
     queryFn: fetchJobs,
   });
 
+  const router = useRouter();
+
   const deleteMutation = useMutation({
     mutationFn: deleteJob,
     onSuccess: () => {
@@ -72,6 +88,18 @@ export default function JobsPage() {
     },
   });
 
+  const createApplicationMutation = useMutation({
+    mutationFn: createApplication,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["applications", "list"] });
+      toast.success("Application created! Redirecting to applications...");
+      router.push("/applications");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to create application");
+    },
+  });
+
   const handleDelete = (id: string) => {
     if (window.confirm("Are you sure you want to delete this job?")) {
       deleteMutation.mutate(id);
@@ -79,9 +107,7 @@ export default function JobsPage() {
   };
 
   const handleCreateApplication = (jobId: string) => {
-    // Navigate to application creation - to be implemented
-    console.log("Creating application for job:", jobId);
-    toast.info("Application creation coming soon");
+    createApplicationMutation.mutate(jobId);
   };
 
   return (

@@ -14,11 +14,18 @@ vi.mock('@/lib/auth', () => ({
 const mockOrderBy = vi.fn()
 const mockValues = vi.fn()
 
-// Mock the database module
+// Mock the database module with leftJoin support
 vi.mock('@/lib/db', () => ({
   db: {
     select: vi.fn(() => ({
       from: vi.fn(() => ({
+        leftJoin: vi.fn(() => ({
+          leftJoin: vi.fn(() => ({
+            where: vi.fn(() => ({
+              orderBy: mockOrderBy,
+            })),
+          })),
+        })),
         where: vi.fn(() => ({
           orderBy: mockOrderBy,
         })),
@@ -28,7 +35,9 @@ vi.mock('@/lib/db', () => ({
       values: mockValues,
     })),
   },
-  applications: { id: 'id', userId: 'user_id', status: 'status', createdAt: 'created_at' },
+  applications: { id: 'id', userId: 'user_id', status: 'status', jobId: 'job_id', resumeId: 'resume_id', createdAt: 'created_at' },
+  jobs: { id: 'id', title: 'title', companyName: 'company_name', location: 'location' },
+  resumes: { id: 'id', name: 'name' },
 }))
 
 // Mock uuid
@@ -43,12 +52,13 @@ describe('Applications API Route', () => {
 
   describe('GET /api/applications', () => {
     it('should return all applications for current user', async () => {
-      const mockApplications = [
-        { id: 'app-1', jobId: 'job-1', status: 'saved', userId: 'user-123' },
-        { id: 'app-2', jobId: 'job-2', status: 'applied', userId: 'user-123' },
+      // Mock data now has flattened structure from JOIN
+      const mockDbResults = [
+        { id: 'app-1', jobId: 'job-1', status: 'saved', userId: 'user-123', resumeId: null, appliedAt: null, notes: null, createdAt: null, updatedAt: null, jobTitle: 'Engineer', jobCompanyName: 'Acme', jobLocation: 'Remote', resumeName: null },
+        { id: 'app-2', jobId: 'job-2', status: 'applied', userId: 'user-123', resumeId: 'resume-1', appliedAt: null, notes: null, createdAt: null, updatedAt: null, jobTitle: 'Manager', jobCompanyName: 'Corp', jobLocation: 'NYC', resumeName: 'My Resume' },
       ]
 
-      mockOrderBy.mockResolvedValue(mockApplications)
+      mockOrderBy.mockResolvedValue(mockDbResults)
 
       const request = new Request('http://localhost/api/applications')
       const response = await GET(request)
@@ -56,18 +66,21 @@ describe('Applications API Route', () => {
 
       expect(response.status).toBe(200)
       expect(data.success).toBe(true)
-      expect(data.data).toEqual(mockApplications)
+      expect(data.data.length).toBe(2)
+      // Check that response includes nested job object
+      expect(data.data[0].job.title).toBe('Engineer')
+      expect(data.data[1].resume.name).toBe('My Resume')
       expect(data.meta.total).toBe(2)
     })
 
     it('should filter by status when provided', async () => {
-      const allApplications = [
-        { id: 'app-1', jobId: 'job-1', status: 'saved', userId: 'user-123' },
-        { id: 'app-2', jobId: 'job-2', status: 'applied', userId: 'user-123' },
-        { id: 'app-3', jobId: 'job-3', status: 'saved', userId: 'user-123' },
+      const allDbResults = [
+        { id: 'app-1', jobId: 'job-1', status: 'saved', userId: 'user-123', resumeId: null, appliedAt: null, notes: null, createdAt: null, updatedAt: null, jobTitle: 'Engineer', jobCompanyName: 'Acme', jobLocation: 'Remote', resumeName: null },
+        { id: 'app-2', jobId: 'job-2', status: 'applied', userId: 'user-123', resumeId: null, appliedAt: null, notes: null, createdAt: null, updatedAt: null, jobTitle: 'Manager', jobCompanyName: 'Corp', jobLocation: 'NYC', resumeName: null },
+        { id: 'app-3', jobId: 'job-3', status: 'saved', userId: 'user-123', resumeId: null, appliedAt: null, notes: null, createdAt: null, updatedAt: null, jobTitle: 'Dev', jobCompanyName: 'Startup', jobLocation: 'LA', resumeName: null },
       ]
 
-      mockOrderBy.mockResolvedValue(allApplications)
+      mockOrderBy.mockResolvedValue(allDbResults)
 
       const request = new Request('http://localhost/api/applications?status=saved')
       const response = await GET(request)

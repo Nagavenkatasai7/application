@@ -1,7 +1,9 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   PageTransition,
   StaggerContainer,
@@ -17,6 +19,28 @@ import {
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+
+// Fetch functions for stats
+async function fetchResumesCount(): Promise<number> {
+  const response = await fetch("/api/resumes");
+  if (!response.ok) return 0;
+  const data = await response.json();
+  return data.meta?.total || 0;
+}
+
+async function fetchJobsCount(): Promise<number> {
+  const response = await fetch("/api/jobs");
+  if (!response.ok) return 0;
+  const data = await response.json();
+  return data.meta?.total || 0;
+}
+
+async function fetchApplicationsCount(): Promise<number> {
+  const response = await fetch("/api/applications");
+  if (!response.ok) return 0;
+  const data = await response.json();
+  return data.meta?.total || 0;
+}
 
 // Quick action cards for the dashboard
 const quickActions = [
@@ -40,29 +64,31 @@ const quickActions = [
   },
 ];
 
-// Stats cards (placeholder data)
-const stats = [
+// Stats card definitions (values fetched dynamically)
+interface StatCard {
+  title: string;
+  description: string;
+  icon: typeof FileText;
+}
+
+const statCards: StatCard[] = [
   {
     title: "Resumes",
-    value: "0",
     description: "Total resumes created",
     icon: FileText,
   },
   {
     title: "Jobs Saved",
-    value: "0",
     description: "Jobs in your pipeline",
     icon: Briefcase,
   },
   {
     title: "Applications",
-    value: "0",
     description: "Applications tracked",
     icon: Send,
   },
   {
     title: "Match Score",
-    value: "—",
     description: "Average ATS score",
     icon: Target,
   },
@@ -91,6 +117,30 @@ const modules = [
 ];
 
 export default function DashboardPage() {
+  // Fetch stats data
+  const { data: resumesCount, isLoading: resumesLoading } = useQuery({
+    queryKey: ["resumes", "count"],
+    queryFn: fetchResumesCount,
+  });
+
+  const { data: jobsCount, isLoading: jobsLoading } = useQuery({
+    queryKey: ["jobs", "count"],
+    queryFn: fetchJobsCount,
+  });
+
+  const { data: applicationsCount, isLoading: applicationsLoading } = useQuery({
+    queryKey: ["applications", "count"],
+    queryFn: fetchApplicationsCount,
+  });
+
+  // Build stats values dynamically
+  const statsValues = [
+    { value: resumesCount, isLoading: resumesLoading },
+    { value: jobsCount, isLoading: jobsLoading },
+    { value: applicationsCount, isLoading: applicationsLoading },
+    { value: "—", isLoading: false }, // Match Score - placeholder for now
+  ];
+
   return (
     <PageTransition>
       <div className="space-y-8">
@@ -134,7 +184,7 @@ export default function DashboardPage() {
         <div>
           <h2 className="text-xl font-semibold tracking-tight mb-4">Overview</h2>
           <StaggerContainer className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {stats.map((stat) => (
+            {statCards.map((stat, index) => (
               <StaggerItem key={stat.title}>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -144,7 +194,13 @@ export default function DashboardPage() {
                     <stat.icon className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{stat.value}</div>
+                    {statsValues[index].isLoading ? (
+                      <Skeleton className="h-8 w-12" />
+                    ) : (
+                      <div className="text-2xl font-bold">
+                        {statsValues[index].value ?? 0}
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {stat.description}
                     </p>
