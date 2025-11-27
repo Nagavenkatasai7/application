@@ -140,13 +140,18 @@ test.describe("Applications Status Overview", () => {
       const cardsExist = await statusCards.first().isVisible().catch(() => false);
 
       if (cardsExist) {
-        // Verify status labels are present
+        // Verify at least one status label is present on the page
         const statusLabels = ["Saved", "Applied", "Interviewing", "Offered", "Rejected"];
+        let hasAnyStatus = false;
         for (const label of statusLabels) {
-          // At least check that the page contains expected statuses
-          const statusText = page.getByText(label);
-          // Don't fail if not visible, just check if exists in page
+          const isVisible = await page.getByText(label).first().isVisible().catch(() => false);
+          if (isVisible) {
+            hasAnyStatus = true;
+            break;
+          }
         }
+        // Page should show at least one status when cards exist
+        expect(hasAnyStatus).toBe(true);
       }
     }
   });

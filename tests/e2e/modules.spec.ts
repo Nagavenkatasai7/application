@@ -135,7 +135,7 @@ test.describe("Module Navigation from Dashboard", () => {
 });
 
 test.describe("Module Accessibility", () => {
-  const modules = [
+  const modulePages = [
     { path: "/modules/uniqueness", name: "Uniqueness Extraction" },
     { path: "/modules/impact", name: "Impact Quantification" },
     { path: "/modules/context", name: "Context Alignment" },
@@ -143,9 +143,9 @@ test.describe("Module Accessibility", () => {
     { path: "/modules/soft-skills", name: "Soft Skills" },
   ];
 
-  for (const module of modules) {
-    test(`${module.name} should have proper heading hierarchy`, async ({ page }) => {
-      await page.goto(module.path);
+  for (const modulePage of modulePages) {
+    test(`${modulePage.name} should have proper heading hierarchy`, async ({ page }) => {
+      await page.goto(modulePage.path);
 
       const heading = page.getByRole("heading", { level: 1 });
       await expect(heading).toBeVisible({ timeout: 10000 });

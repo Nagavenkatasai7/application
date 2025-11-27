@@ -1,55 +1,12 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import type { ResumeContent } from "@/lib/validations/resume";
-
-// Loading skeleton for editor sections
-function SectionSkeleton() {
-  return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-6 w-32" />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-2/3" />
-      </CardContent>
-    </Card>
-  );
-}
-
-// Lazy load editor sections - each section is a separate chunk
-const ContactSection = dynamic(
-  () => import("./contact-section").then((mod) => ({ default: mod.ContactSection })),
-  { loading: () => <SectionSkeleton /> }
-);
-
-const SummarySection = dynamic(
-  () => import("./summary-section").then((mod) => ({ default: mod.SummarySection })),
-  { loading: () => <SectionSkeleton /> }
-);
-
-const ExperienceSection = dynamic(
-  () => import("./experience-section").then((mod) => ({ default: mod.ExperienceSection })),
-  { loading: () => <SectionSkeleton /> }
-);
-
-const EducationSection = dynamic(
-  () => import("./education-section").then((mod) => ({ default: mod.EducationSection })),
-  { loading: () => <SectionSkeleton /> }
-);
-
-const SkillsSection = dynamic(
-  () => import("./skills-section").then((mod) => ({ default: mod.SkillsSection })),
-  { loading: () => <SectionSkeleton /> }
-);
-
-const ProjectsSection = dynamic(
-  () => import("./projects-section").then((mod) => ({ default: mod.ProjectsSection })),
-  { loading: () => <SectionSkeleton /> }
-);
+import { ContactSection } from "./contact-section";
+import { SummarySection } from "./summary-section";
+import { ExperienceSection } from "./experience-section";
+import { EducationSection } from "./education-section";
+import { SkillsSection } from "./skills-section";
+import { ProjectsSection } from "./projects-section";
 
 interface ResumeEditorProps {
   content: ResumeContent;
