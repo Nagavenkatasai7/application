@@ -33,6 +33,11 @@ export default defineConfig({
         'src/lib/ai/context.ts',
         'src/lib/ai/soft-skills.ts',
         'src/lib/ai/company.ts',
+        'src/lib/ai/resume-parser.ts',
+        // Exclude environment config (tested indirectly via API routes)
+        'src/lib/env.ts',
+        // Exclude upload route that uses AI parsing
+        'src/app/api/resumes/upload/route.ts',
         // Exclude PDF files as they use @react-pdf/renderer which requires complex rendering
         'src/lib/pdf/generator.tsx',
         'src/lib/pdf/parser.ts',
