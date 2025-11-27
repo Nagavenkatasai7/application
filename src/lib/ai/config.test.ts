@@ -104,7 +104,7 @@ describe("AI Configuration", () => {
       expect(result.model).toBe("claude-sonnet-4-5-20250929");
       expect(result.temperature).toBe(0.7);
       expect(result.maxTokens).toBe(4000);
-      expect(result.timeout).toBe(60000);
+      expect(result.timeout).toBe(180000);
     });
 
     it("should require apiKey", () => {
@@ -238,7 +238,7 @@ describe("AI Configuration", () => {
       expect(config.model).toBe("claude-sonnet-4-5-20250929");
       expect(config.temperature).toBe(0.7);
       expect(config.maxTokens).toBe(4000);
-      expect(config.timeout).toBe(60000);
+      expect(config.timeout).toBe(180000);
     });
 
     it("should throw error when API key is missing", () => {

@@ -33,7 +33,7 @@ export const aiConfigSchema = z.object({
   model: aiModelEnum.default("claude-sonnet-4-5-20250929"),
   temperature: z.number().min(0).max(2).default(0.7),
   maxTokens: z.number().positive().default(4000),
-  timeout: z.number().positive().default(60000), // 60 seconds
+  timeout: z.number().positive().default(180000), // 180 seconds (3 minutes) for complex AI operations
 });
 
 export type AIConfig = z.infer<typeof aiConfigSchema>;
@@ -64,7 +64,7 @@ export function loadAIConfig(): AIConfig {
     model: process.env.AI_MODEL || "claude-sonnet-4-5-20250929",
     temperature: parseFloat(process.env.AI_TEMPERATURE || "0.7"),
     maxTokens: parseInt(process.env.AI_MAX_TOKENS || "4000", 10),
-    timeout: parseInt(process.env.AI_TIMEOUT || "60000", 10),
+    timeout: parseInt(process.env.AI_TIMEOUT || "180000", 10),
   };
 
   return aiConfigSchema.parse(rawConfig);
