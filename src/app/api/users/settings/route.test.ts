@@ -73,7 +73,7 @@ describe("Users Settings API Route", () => {
             limit: vi.fn().mockResolvedValue([mockSettingsRecord]),
           }),
         }),
-      } as ReturnType<typeof db.select>);
+      } as unknown as ReturnType<typeof db.select>);
 
       const response = await GET();
       const data = await response.json();
@@ -113,11 +113,11 @@ describe("Users Settings API Route", () => {
 
       vi.mocked(db.select).mockReturnValue({
         from: mockSelectFrom,
-      } as ReturnType<typeof db.select>);
+      } as unknown as ReturnType<typeof db.select>);
 
       vi.mocked(db.insert).mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
-      } as ReturnType<typeof db.insert>);
+      } as unknown as ReturnType<typeof db.insert>);
 
       const response = await GET();
       const data = await response.json();
@@ -154,13 +154,13 @@ describe("Users Settings API Route", () => {
 
       vi.mocked(db.select).mockReturnValue({
         from: mockSelectFrom,
-      } as ReturnType<typeof db.select>);
+      } as unknown as ReturnType<typeof db.select>);
 
       vi.mocked(db.update).mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue(undefined),
         }),
-      } as ReturnType<typeof db.update>);
+      } as unknown as ReturnType<typeof db.update>);
 
       const request = new Request("http://localhost/api/users/settings", {
         method: "PUT",
@@ -188,13 +188,13 @@ describe("Users Settings API Route", () => {
 
       vi.mocked(db.select).mockReturnValue({
         from: mockSelectFrom,
-      } as ReturnType<typeof db.select>);
+      } as unknown as ReturnType<typeof db.select>);
 
       vi.mocked(db.update).mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue(undefined),
         }),
-      } as ReturnType<typeof db.update>);
+      } as unknown as ReturnType<typeof db.update>);
 
       const request = new Request("http://localhost/api/users/settings", {
         method: "PUT",
@@ -222,13 +222,13 @@ describe("Users Settings API Route", () => {
 
       vi.mocked(db.select).mockReturnValue({
         from: mockSelectFrom,
-      } as ReturnType<typeof db.select>);
+      } as unknown as ReturnType<typeof db.select>);
 
       vi.mocked(db.update).mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue(undefined),
         }),
-      } as ReturnType<typeof db.update>);
+      } as unknown as ReturnType<typeof db.update>);
 
       const request = new Request("http://localhost/api/users/settings", {
         method: "PUT",
@@ -306,17 +306,17 @@ describe("Users Settings API Route", () => {
 
       vi.mocked(db.select).mockReturnValue({
         from: mockSelectFrom,
-      } as ReturnType<typeof db.select>);
+      } as unknown as ReturnType<typeof db.select>);
 
       vi.mocked(db.insert).mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
-      } as ReturnType<typeof db.insert>);
+      } as unknown as ReturnType<typeof db.insert>);
 
       vi.mocked(db.update).mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue(undefined),
         }),
-      } as ReturnType<typeof db.update>);
+      } as unknown as ReturnType<typeof db.update>);
 
       const request = new Request("http://localhost/api/users/settings", {
         method: "PUT",
