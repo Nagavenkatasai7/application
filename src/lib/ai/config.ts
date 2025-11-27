@@ -167,6 +167,12 @@ export const MODEL_CONFIGS = {
     temperature: 0.5,
     maxTokens: 1500,
   },
+  // Conversational assessments (soft skills survey)
+  conversational: {
+    model: "claude-sonnet-4-5-20250929" as AIModel,
+    temperature: 0.7,
+    maxTokens: 1000,
+  },
 } as const;
 
 /**
