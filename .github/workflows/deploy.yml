@@ -82,23 +82,38 @@ jobs:
       - name: Configure Vercel Environment Variables
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          # List current env vars for debugging
-          echo "Current environment variables:"
-          vercel env ls --token=$VERCEL_TOKEN || true
+          # Use Vercel REST API to add env vars (more reliable than CLI)
 
-          # Remove existing env vars for all environments
-          for ENV in production preview development; do
-            vercel env rm ANTHROPIC_API_KEY $ENV --yes --token=$VERCEL_TOKEN 2>/dev/null || true
-            vercel env rm AI_PROVIDER $ENV --yes --token=$VERCEL_TOKEN 2>/dev/null || true
+          # Delete existing env vars
+          echo "Removing existing env vars..."
+          ENVS=$(curl -s "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]? | select(.key == "ANTHROPIC_API_KEY" or .key == "AI_PROVIDER") | .id')
+
+          for ID in $ENVS; do
+            curl -s -X DELETE "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env/$ID?teamId=$VERCEL_ORG_ID" \
+              -H "Authorization: Bearer $VERCEL_TOKEN"
+            echo "Deleted env var with id: $ID"
           done
 
-          # Add env vars for production (runtime)
-          echo "${{ secrets.ANTHROPIC_API_KEY }}" | vercel env add ANTHROPIC_API_KEY production --token=$VERCEL_TOKEN
-          echo "anthropic" | vercel env add AI_PROVIDER production --token=$VERCEL_TOKEN
+          # Add ANTHROPIC_API_KEY
+          echo "Adding ANTHROPIC_API_KEY..."
+          curl -s -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"key\":\"ANTHROPIC_API_KEY\",\"value\":\"${{ secrets.ANTHROPIC_API_KEY }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}"
 
-          # Verify env vars were added
-          echo "Environment variables after configuration:"
+          # Add AI_PROVIDER
+          echo "Adding AI_PROVIDER..."
+          curl -s -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"key":"AI_PROVIDER","value":"anthropic","type":"plain","target":["production","preview","development"]}'
+
+          # Verify
+          echo "Environment variables configured:"
           vercel env ls --token=$VERCEL_TOKEN || true
 
       - name: Pull Vercel Environment Information
