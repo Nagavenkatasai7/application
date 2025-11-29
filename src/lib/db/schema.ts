@@ -1,26 +1,33 @@
-import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
+import {
+  pgTable,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  uniqueIndex,
+  index,
+  jsonb,
+} from "drizzle-orm/pg-core";
 
 // Users table
-export const users = sqliteTable("users", {
+export const users = pgTable("users", {
   id: text("id").primaryKey(), // UUID
   email: text("email").unique().notNull(),
   name: text("name"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 // Resume templates table
-export const templates = sqliteTable("templates", {
+export const templates = pgTable("templates", {
   id: text("id").primaryKey(), // UUID
   name: text("name").notNull(),
   htmlTemplate: text("html_template"), // Handlebars template
   cssStyles: text("css_styles"), // Template-specific CSS
-  isAtsSafe: integer("is_ats_safe", { mode: "boolean" }).default(true),
+  isAtsSafe: boolean("is_ats_safe").default(true),
 });
 
 // Resumes table
-export const resumes = sqliteTable(
+export const resumes = pgTable(
   "resumes",
   {
     id: text("id").primaryKey(), // UUID
@@ -28,36 +35,32 @@ export const resumes = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    content: text("content", { mode: "json" }).notNull(), // Structured resume data (JSON)
+    content: jsonb("content").notNull(), // Structured resume data (JSON)
     templateId: text("template_id").references(() => templates.id),
-    isMaster: integer("is_master", { mode: "boolean" }).default(false),
+    isMaster: boolean("is_master").default(false),
     // PDF upload fields
     originalFileName: text("original_file_name"), // Original uploaded PDF filename
     fileSize: integer("file_size"), // File size in bytes
     extractedText: text("extracted_text"), // Raw text extracted from PDF
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: integer("updated_at", { mode: "timestamp" })
-      .notNull()
-      .$defaultFn(() => new Date()),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [index("resumes_user_idx").on(table.userId)]
 );
 
 // Companies table
-export const companies = sqliteTable("companies", {
+export const companies = pgTable("companies", {
   id: text("id").primaryKey(), // UUID
   name: text("name").notNull().unique(),
-  glassdoorData: text("glassdoor_data", { mode: "json" }), // Ratings, reviews summary, pros/cons
-  fundingData: text("funding_data", { mode: "json" }), // Rounds, investors, valuation, stage
-  cultureSignals: text("culture_signals", { mode: "json" }), // AI-extracted values (1-5 scale per dimension)
-  competitors: text("competitors", { mode: "json" }), // JSON array
-  cachedAt: integer("cached_at", { mode: "timestamp" }), // 7-day TTL
+  glassdoorData: jsonb("glassdoor_data"), // Ratings, reviews summary, pros/cons
+  fundingData: jsonb("funding_data"), // Rounds, investors, valuation, stage
+  cultureSignals: jsonb("culture_signals"), // AI-extracted values (1-5 scale per dimension)
+  competitors: jsonb("competitors"), // JSON array
+  cachedAt: timestamp("cached_at"), // 7-day TTL
 });
 
 // Jobs table
-export const jobs = sqliteTable(
+export const jobs = pgTable(
   "jobs",
   {
     id: text("id").primaryKey(), // UUID
@@ -80,14 +83,12 @@ export const jobs = sqliteTable(
     companyName: text("company_name"), // Fallback if company not in DB
     location: text("location"),
     description: text("description"),
-    requirements: text("requirements", { mode: "json" }), // JSON array
-    skills: text("skills", { mode: "json" }), // Extracted via GLiNER - JSON array
-    salary: text("salary", { mode: "json" }), // { min, max, currency }
-    postedAt: integer("posted_at", { mode: "timestamp" }),
-    cachedAt: integer("cached_at", { mode: "timestamp" }), // 24-hour TTL
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .$defaultFn(() => new Date()),
+    requirements: jsonb("requirements"), // JSON array
+    skills: jsonb("skills"), // Extracted via GLiNER - JSON array
+    salary: jsonb("salary"), // { min, max, currency }
+    postedAt: timestamp("posted_at"),
+    cachedAt: timestamp("cached_at"), // 24-hour TTL
+    createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
     index("jobs_company_idx").on(table.companyId),
@@ -96,7 +97,7 @@ export const jobs = sqliteTable(
 );
 
 // Soft skills assessment table
-export const softSkills = sqliteTable(
+export const softSkills = pgTable(
   "soft_skills",
   {
     id: text("id").primaryKey(), // UUID
@@ -105,14 +106,10 @@ export const softSkills = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     skillName: text("skill_name").notNull(),
     evidenceScore: integer("evidence_score"), // 1-5 scale
-    conversation: text("conversation", { mode: "json" }), // Full chat history - JSON array
+    conversation: jsonb("conversation"), // Full chat history - JSON array
     statement: text("statement"), // Generated resume statement
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: integer("updated_at", { mode: "timestamp" })
-      .notNull()
-      .$defaultFn(() => new Date()),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("soft_skills_user_skill_idx").on(table.userId, table.skillName),
@@ -120,7 +117,7 @@ export const softSkills = sqliteTable(
 );
 
 // User settings table
-export const userSettings = sqliteTable(
+export const userSettings = pgTable(
   "user_settings",
   {
     id: text("id").primaryKey(), // UUID
@@ -128,19 +125,15 @@ export const userSettings = sqliteTable(
       .notNull()
       .unique()
       .references(() => users.id, { onDelete: "cascade" }),
-    settings: text("settings", { mode: "json" }).notNull(), // Full settings JSON
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: integer("updated_at", { mode: "timestamp" })
-      .notNull()
-      .$defaultFn(() => new Date()),
+    settings: jsonb("settings").notNull(), // Full settings JSON
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [uniqueIndex("user_settings_user_idx").on(table.userId)]
 );
 
 // Applications tracking table
-export const applications = sqliteTable(
+export const applications = pgTable(
   "applications",
   {
     id: text("id").primaryKey(), // UUID
@@ -158,14 +151,10 @@ export const applications = sqliteTable(
     })
       .notNull()
       .default("saved"),
-    appliedAt: integer("applied_at", { mode: "timestamp" }),
+    appliedAt: timestamp("applied_at"),
     notes: text("notes"),
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: integer("updated_at", { mode: "timestamp" })
-      .notNull()
-      .$defaultFn(() => new Date()),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("applications_user_job_idx").on(table.userId, table.jobId),

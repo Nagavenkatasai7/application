@@ -11,8 +11,8 @@ pnpm build                  # Build for production
 pnpm lint                   # Run ESLint
 pnpm typecheck              # Run TypeScript type checking
 
-# Database
-pnpm db:push                # Push schema changes to SQLite database
+# Database (Vercel Postgres)
+pnpm db:push                # Push schema changes to PostgreSQL database
 pnpm db:studio              # Open Drizzle Studio for database inspection
 
 # Testing
@@ -29,8 +29,8 @@ This is a Next.js 16 App Router application for AI-powered resume optimization.
 
 ### Data Flow Pattern
 ```
-React Components � React Query � API Routes � Drizzle ORM � SQLite
-                     �
+React Components → React Query → API Routes → Drizzle ORM → Vercel Postgres
+                     ↓
               Zustand (UI state)
 ```
 
@@ -39,7 +39,7 @@ React Components � React Query � API Routes � Drizzle ORM � SQLite
 - `src/app/(dashboard)/` - Main application pages with shared sidebar layout
 - `src/app/api/` - REST API routes following `/api/[resource]/[id]` pattern
 - `src/lib/ai/` - AI service integrations (Anthropic/OpenAI) with prompt templates in `prompts.ts`
-- `src/lib/db/schema.ts` - Drizzle ORM schema (SQLite)
+- `src/lib/db/schema.ts` - Drizzle ORM schema (PostgreSQL)
 - `src/lib/validations/` - Zod schemas for request/response validation
 - `src/stores/` - Zustand stores for client state
 - `tests/e2e/` - Playwright E2E tests
@@ -96,7 +96,7 @@ All API routes return:
 **Required Vercel Environment Variables:**
 - `ANTHROPIC_API_KEY` - AI features
 - `AI_PROVIDER=anthropic`
-- `DATABASE_URL=file:./data/resume-maker.db`
+- `POSTGRES_URL` - Vercel Postgres connection string (auto-populated when database is linked)
 
 **Troubleshooting:**
 - If deployed site shows "Authentication Required": Disable Vercel Deployment Protection in Settings → Deployment Protection
