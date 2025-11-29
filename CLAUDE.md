@@ -29,8 +29,8 @@ This is a Next.js 16 App Router application for AI-powered resume optimization.
 
 ### Data Flow Pattern
 ```
-React Components ’ React Query ’ API Routes ’ Drizzle ORM ’ SQLite
-                     “
+React Components ï¿½ React Query ï¿½ API Routes ï¿½ Drizzle ORM ï¿½ SQLite
+                     ï¿½
               Zustand (UI state)
 ```
 
@@ -80,3 +80,24 @@ All API routes return:
 - shadcn/ui components in `src/components/ui/`
 - Framer Motion for animations
 - Dark/light/system theme support via `next-themes`
+
+### Deployment (Vercel)
+
+- Project: `resume-maker` on Vercel (team: `venkats-projects-d28f24e0`)
+- GitHub repo: `Nagavenkatasai7/application`
+- CI/CD: GitHub Actions (`.github/workflows/ci.yml`, `deploy.yml`)
+
+**Required GitHub Secrets:**
+- `CODECOV_TOKEN` - Code coverage reporting
+- `VERCEL_TOKEN` - Vercel API access
+- `VERCEL_ORG_ID` - Team ID (`team_bsOovU9x83M4AAoqgGuy0G9D`)
+- `VERCEL_PROJECT_ID` - Project ID (`prj_EnCRDABmBJbdkpPmHNyksFAsFZxD`)
+
+**Required Vercel Environment Variables:**
+- `ANTHROPIC_API_KEY` - AI features
+- `AI_PROVIDER=anthropic`
+- `DATABASE_URL=file:./data/resume-maker.db`
+
+**Troubleshooting:**
+- If deployed site shows "Authentication Required": Disable Vercel Deployment Protection in Settings â†’ Deployment Protection
+- Health check returns 401 in CI: This is expected when SSO protection is enabled; the workflow handles this gracefully
