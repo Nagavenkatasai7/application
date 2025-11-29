@@ -8,6 +8,7 @@ const DEFAULT_USER_NAME = "Local User";
 /**
  * Get or create the local user
  * Since this is a single-user local-first app, we auto-create one user
+ * Handles race conditions when multiple concurrent requests try to create a user
  */
 export async function getOrCreateLocalUser(): Promise<User> {
   // Try to find existing user
@@ -17,22 +18,33 @@ export async function getOrCreateLocalUser(): Promise<User> {
     return existingUsers[0];
   }
 
-  // Create default local user
+  // Create default local user with timestamps
+  const now = new Date();
   const newUser: typeof users.$inferInsert = {
     id: uuidv4(),
     email: DEFAULT_USER_EMAIL,
     name: DEFAULT_USER_NAME,
   };
 
-  await db.insert(users).values(newUser);
+  try {
+    await db.insert(users).values(newUser);
 
-  // Return the created user
-  const [createdUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, newUser.id));
-
-  return createdUser;
+    // Return the user directly to avoid replica lag
+    return {
+      ...newUser,
+      createdAt: now,
+      updatedAt: now,
+    } as User;
+  } catch (error) {
+    // If insert fails due to race condition (unique constraint on email),
+    // another request already created the user - fetch it
+    const [existingUser] = await db.select().from(users).limit(1);
+    if (existingUser) {
+      return existingUser;
+    }
+    // Re-throw if we still can't find the user
+    throw error;
+  }
 }
 
 /**

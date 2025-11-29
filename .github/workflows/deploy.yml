@@ -90,7 +90,7 @@ jobs:
           # Delete existing env vars
           echo "Removing existing env vars..."
           ENVS=$(curl -s "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
-            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]? | select(.key == "ANTHROPIC_API_KEY" or .key == "AI_PROVIDER") | .id')
+            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]? | select(.key == "ANTHROPIC_API_KEY" or .key == "AI_PROVIDER" or .key == "AI_TIMEOUT") | .id')
 
           for ID in $ENVS; do
             curl -s -X DELETE "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env/$ID?teamId=$VERCEL_ORG_ID" \
@@ -111,6 +111,13 @@ jobs:
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"key":"AI_PROVIDER","value":"anthropic","type":"plain","target":["production","preview","development"]}'
+
+          # Add AI_TIMEOUT (180 seconds for AI operations)
+          echo "Adding AI_TIMEOUT..."
+          curl -s -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"key":"AI_TIMEOUT","value":"180000","type":"plain","target":["production","preview","development"]}'
 
           # Verify
           echo "Environment variables configured:"

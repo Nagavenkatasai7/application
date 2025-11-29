@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { db, resumes } from "@/lib/db";
 import { getOrCreateLocalUser } from "@/lib/auth";
 import { v4 as uuidv4 } from "uuid";
-import { eq } from "drizzle-orm";
 import { extractTextFromPdf } from "@/lib/pdf/parser";
 import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES } from "@/lib/validations/resume";
 import { parseResumeText } from "@/lib/ai/resume-parser";
@@ -91,12 +90,18 @@ export async function POST(request: Request) {
     };
 
     // Try to parse resume content using AI if text was extracted and AI is configured
+    let aiParsingFailed = false;
+    let aiErrorMessage = "";
+
     if (extractedText && isAIConfigured()) {
       try {
         parsedContent = await parseResumeText(extractedText);
         console.log("Successfully parsed resume with AI");
       } catch (error) {
         console.error("Error parsing resume with AI:", error);
+        aiParsingFailed = true;
+        aiErrorMessage =
+          error instanceof Error ? error.message : "AI parsing failed";
         // Continue with default empty content - user can edit manually
       }
     }
@@ -108,7 +113,8 @@ export async function POST(request: Request) {
       file.name.replace(/\.pdf$/i, "") ||
       "Untitled Resume";
 
-    // Create resume record
+    // Create resume record with timestamps
+    const now = new Date();
     const newResume = {
       id: uuidv4(),
       userId: user.id,
@@ -117,18 +123,21 @@ export async function POST(request: Request) {
       originalFileName: file.name,
       fileSize: file.size,
       extractedText: extractedText || null,
+      createdAt: now,
+      updatedAt: now,
     };
 
     await db.insert(resumes).values(newResume);
 
-    // Fetch the created resume
-    const [createdResume] = await db
-      .select()
-      .from(resumes)
-      .where(eq(resumes.id, newResume.id));
-
+    // Return the newResume directly instead of SELECT to avoid replica lag
     return NextResponse.json(
-      { success: true, data: createdResume },
+      {
+        success: true,
+        data: newResume,
+        warning: aiParsingFailed
+          ? `Resume uploaded but AI parsing failed: ${aiErrorMessage}. You can edit details manually.`
+          : undefined,
+      },
       { status: 201 }
     );
   } catch (error) {

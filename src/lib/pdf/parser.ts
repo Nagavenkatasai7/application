@@ -23,6 +23,8 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedPdf> {
   let parser: PDFParse | null = null;
 
   try {
+    console.log(`[PDF] Starting extraction, buffer size: ${buffer.length} bytes`);
+
     // pdf-parse v2 uses class-based API with data option for buffers
     parser = new PDFParse({ data: buffer });
 
@@ -32,7 +34,7 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedPdf> {
     // Extract metadata
     const infoResult = await parser.getInfo();
 
-    return {
+    const result = {
       text: textResult.text?.trim() || "",
       numPages: textResult.total || 0,
       info: {
@@ -41,13 +43,26 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedPdf> {
         creator: infoResult.info?.Creator as string | undefined,
       },
     };
+
+    console.log(
+      `[PDF] Extraction successful, text length: ${result.text.length}, pages: ${result.numPages}`
+    );
+
+    return result;
   } catch (error) {
-    console.error("Error parsing PDF:", error);
-    throw new Error("Failed to parse PDF file");
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[PDF] Extraction failed: ${errorMessage}`);
+
+    // Throw with more context for debugging
+    throw new Error(`PDF extraction failed: ${errorMessage}`);
   } finally {
     // Always destroy the parser to free resources
     if (parser) {
-      await parser.destroy();
+      try {
+        await parser.destroy();
+      } catch (destroyError) {
+        console.error("[PDF] Error destroying parser:", destroyError);
+      }
     }
   }
 }

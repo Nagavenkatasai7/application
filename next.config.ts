@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
 
   // External packages that should not be bundled by Turbopack
   // This allows native Node.js modules to work properly
-  serverExternalPackages: ["pdf-parse", "better-sqlite3"],
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "better-sqlite3"],
 
   // Optimize images
   images: {
