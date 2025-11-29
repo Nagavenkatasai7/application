@@ -83,20 +83,31 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          # Remove existing env vars if they exist, then add new ones
-          vercel env rm ANTHROPIC_API_KEY production --yes --token=$VERCEL_TOKEN 2>/dev/null || true
-          vercel env rm AI_PROVIDER production --yes --token=$VERCEL_TOKEN 2>/dev/null || true
+          # List current env vars for debugging
+          echo "Current environment variables:"
+          vercel env ls --token=$VERCEL_TOKEN || true
 
-          # Add env vars
+          # Remove existing env vars for all environments
+          for ENV in production preview development; do
+            vercel env rm ANTHROPIC_API_KEY $ENV --yes --token=$VERCEL_TOKEN 2>/dev/null || true
+            vercel env rm AI_PROVIDER $ENV --yes --token=$VERCEL_TOKEN 2>/dev/null || true
+          done
+
+          # Add env vars for production (runtime)
           echo "${{ secrets.ANTHROPIC_API_KEY }}" | vercel env add ANTHROPIC_API_KEY production --token=$VERCEL_TOKEN
           echo "anthropic" | vercel env add AI_PROVIDER production --token=$VERCEL_TOKEN
 
-          echo "Environment variables configured"
+          # Verify env vars were added
+          echo "Environment variables after configuration:"
+          vercel env ls --token=$VERCEL_TOKEN || true
 
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=${{ github.event.inputs.environment || 'production' }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build Project Artifacts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_PROVIDER: anthropic
         run: vercel build ${{ github.event.inputs.environment == 'production' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy to Vercel
