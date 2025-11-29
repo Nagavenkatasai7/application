@@ -5,6 +5,9 @@ import { v4 as uuidv4 } from "uuid";
 import { researchCompany, CompanyResearchError } from "@/lib/ai/company";
 import { companyResearchRequestSchema } from "@/lib/validations/company";
 
+// Vercel function configuration - use maximum allowed duration
+export const maxDuration = 60; // seconds (requires Pro plan for >10s)
+
 /**
  * Cache TTL in milliseconds (7 days)
  */

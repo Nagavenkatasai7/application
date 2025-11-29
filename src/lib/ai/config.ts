@@ -179,9 +179,9 @@ export const MODEL_CONFIGS = {
     temperature: 0.7,
     maxTokens: 1000,
   },
-  // Company research and intelligence
+  // Company research and intelligence - using Haiku for speed on Vercel Hobby plan
   companyResearch: {
-    model: "claude-sonnet-4-5-20250929" as AIModel,
+    model: "claude-3-5-haiku-20241022" as AIModel,
     temperature: 0.5,
     maxTokens: 4000,
   },

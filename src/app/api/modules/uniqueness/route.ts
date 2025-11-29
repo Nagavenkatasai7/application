@@ -6,6 +6,9 @@ import { analyzeUniqueness, UniquenessError } from "@/lib/ai/uniqueness";
 import { uniquenessRequestSchema } from "@/lib/validations/uniqueness";
 import type { ResumeContent } from "@/lib/validations/resume";
 
+// Vercel function configuration
+export const maxDuration = 60;
+
 /**
  * POST /api/modules/uniqueness - Analyze resume for unique differentiators
  *

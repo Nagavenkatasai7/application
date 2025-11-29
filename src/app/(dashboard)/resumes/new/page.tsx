@@ -25,8 +25,19 @@ async function uploadResume(data: { name: string }, file: File): Promise<UploadR
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || "Failed to upload resume");
+    // Safely parse error response - handle non-JSON responses
+    let errorMessage = "Failed to upload resume";
+    try {
+      const error = await response.json();
+      errorMessage = error.error?.message || errorMessage;
+    } catch {
+      // Response was not JSON (e.g., server error)
+      const text = await response.text().catch(() => "");
+      if (text) {
+        errorMessage = text.substring(0, 100); // Truncate long messages
+      }
+    }
+    throw new Error(errorMessage);
   }
 
   const result = await response.json();

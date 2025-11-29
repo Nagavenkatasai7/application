@@ -46,8 +46,15 @@ async function createApplication(jobId: string): Promise<{ success: boolean; dat
     body: JSON.stringify({ jobId, status: "saved" }),
   });
   if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.error?.message || "Failed to create application");
+    // Safely parse error response - handle non-JSON responses
+    let errorMessage = "Failed to create application";
+    try {
+      const data = await response.json();
+      errorMessage = data.error?.message || errorMessage;
+    } catch {
+      // Response was not JSON
+    }
+    throw new Error(errorMessage);
   }
   return response.json();
 }

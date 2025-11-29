@@ -58,7 +58,16 @@ export default function CompanyResearchPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyName: name }),
       });
-      const data: APIResponse<CompanyResearchResult> = await res.json();
+
+      // Safely parse JSON response - handle non-JSON error responses
+      let data: APIResponse<CompanyResearchResult>;
+      try {
+        data = await res.json();
+      } catch {
+        // Response was not JSON (e.g., server error)
+        throw new Error(res.ok ? "Invalid response from server" : `Server error: ${res.status}`);
+      }
+
       if (!data.success) {
         throw new Error(data.error?.message || "Research failed");
       }
