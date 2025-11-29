@@ -96,7 +96,9 @@ export default function CompanyResearchPage() {
     },
   });
 
-  // Handle status updates
+  // Handle status updates - this is a legitimate sync from external data (React Query)
+  // to local state, which requires useEffect
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (statusQuery.data?.status === "completed" && statusQuery.data.data) {
       setResult(statusQuery.data.data);
@@ -114,6 +116,7 @@ export default function CompanyResearchPage() {
       setProcessingStep((prev) => (prev < PROCESSING_STEPS.length - 1 ? prev + 1 : prev));
     }
   }, [statusQuery.data]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Company research mutation
   const researchMutation = useMutation({

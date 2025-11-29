@@ -4,6 +4,7 @@ import { POST } from "./route";
 // Mock database
 const mockCompanyWhere = vi.fn();
 const mockInsertValues = vi.fn();
+const mockUpdateSet = vi.fn();
 const mockUpdateWhere = vi.fn();
 
 vi.mock("@/lib/db", () => ({
@@ -17,9 +18,9 @@ vi.mock("@/lib/db", () => ({
       values: mockInsertValues,
     })),
     update: vi.fn(() => ({
-      set: vi.fn(() => ({
+      set: mockUpdateSet.mockReturnValue({
         where: mockUpdateWhere,
-      })),
+      }),
     })),
   },
   companies: "companies",
@@ -29,27 +30,14 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn((field, value) => ({ field, value })),
 }));
 
-// Mock AI service
-vi.mock("@/lib/ai/company", () => ({
-  researchCompany: vi.fn(),
-  CompanyResearchError: class CompanyResearchError extends Error {
-    code: string;
-    constructor(message: string, code: string) {
-      super(message);
-      this.code = code;
-      this.name = "CompanyResearchError";
-    }
-  },
-}));
+// Mock fetch for background process trigger
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 // Mock uuid
 vi.mock("uuid", () => ({
   v4: vi.fn().mockReturnValue("test-company-id"),
 }));
-
-import { researchCompany, CompanyResearchError } from "@/lib/ai/company";
-
-const mockResearchCompany = vi.mocked(researchCompany);
 
 const createRequest = (body: unknown): Request => {
   return new Request("http://localhost/api/modules/company", {
@@ -99,6 +87,7 @@ describe("Company Research API Route", () => {
     mockCompanyWhere.mockResolvedValue([]);
     mockInsertValues.mockResolvedValue(undefined);
     mockUpdateWhere.mockResolvedValue(undefined);
+    mockFetch.mockResolvedValue({ ok: true });
   });
 
   describe("POST /api/modules/company", () => {
@@ -144,25 +133,12 @@ describe("Company Research API Route", () => {
       expect(data.error.code).toBe("VALIDATION_ERROR");
     });
 
-    it("should research company successfully and cache result", async () => {
-      const mockResult = createMockResult();
-      mockResearchCompany.mockResolvedValue(mockResult);
-
-      const response = await POST(createRequest({ companyName: "Google" }));
-
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-      expect(data.data.companyName).toBe("Google");
-      expect(data.cached).toBe(false);
-      expect(mockInsertValues).toHaveBeenCalled();
-    });
-
-    it("should return cached result if available", async () => {
+    it("should return cached result immediately if available", async () => {
       const mockResult = createMockResult();
       const cachedCompany = {
         id: "existing-id",
         name: "google",
+        status: "completed",
         cultureSignals: mockResult,
         cachedAt: new Date(), // Fresh cache
       };
@@ -174,7 +150,73 @@ describe("Company Research API Route", () => {
       const data = await response.json();
       expect(data.success).toBe(true);
       expect(data.cached).toBe(true);
-      expect(mockResearchCompany).not.toHaveBeenCalled();
+      expect(data.data.companyName).toBe("Google");
+      // Should not trigger background process for cached results
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("should return processing status for new company", async () => {
+      // No cached company
+      mockCompanyWhere.mockResolvedValue([]);
+
+      const response = await POST(createRequest({ companyName: "Google" }));
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.status).toBe("processing");
+      expect(data.requestId).toBe("test-company-id");
+      // Should insert new record
+      expect(mockInsertValues).toHaveBeenCalled();
+      // Should trigger background process
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/modules/company/process"),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining("Google"),
+        })
+      );
+    });
+
+    it("should return processing status if already processing", async () => {
+      const processingCompany = {
+        id: "processing-id",
+        name: "google",
+        status: "processing",
+        processingStartedAt: new Date(), // Just started
+      };
+      mockCompanyWhere.mockResolvedValue([processingCompany]);
+
+      const response = await POST(createRequest({ companyName: "Google" }));
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.status).toBe("processing");
+      expect(data.requestId).toBe("processing-id");
+      // Should not insert or update for in-progress requests
+      expect(mockInsertValues).not.toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("should re-trigger processing if stale", async () => {
+      const staleProcessing = {
+        id: "stale-id",
+        name: "google",
+        status: "processing",
+        processingStartedAt: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago (stale)
+      };
+      mockCompanyWhere.mockResolvedValue([staleProcessing]);
+
+      const response = await POST(createRequest({ companyName: "Google" }));
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.status).toBe("processing");
+      // Should re-trigger processing for stale requests
+      expect(mockUpdateWhere).toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalled();
     });
 
     it("should re-research if cache is expired", async () => {
@@ -183,74 +225,25 @@ describe("Company Research API Route", () => {
       const cachedCompany = {
         id: "existing-id",
         name: "google",
+        status: "completed",
         cultureSignals: mockResult,
         cachedAt: expiredCache,
       };
       mockCompanyWhere.mockResolvedValue([cachedCompany]);
-      mockResearchCompany.mockResolvedValue(mockResult);
 
       const response = await POST(createRequest({ companyName: "Google" }));
 
       expect(response.status).toBe(200);
       const data = await response.json();
       expect(data.success).toBe(true);
-      expect(data.cached).toBe(false);
-      expect(mockResearchCompany).toHaveBeenCalled();
+      expect(data.status).toBe("processing");
+      // Should trigger re-research for expired cache
       expect(mockUpdateWhere).toHaveBeenCalled();
-    });
-
-    it("should handle AI not configured error", async () => {
-      mockResearchCompany.mockRejectedValue(
-        new CompanyResearchError("AI not configured", "AI_NOT_CONFIGURED")
-      );
-
-      const response = await POST(createRequest({ companyName: "Google" }));
-
-      expect(response.status).toBe(503);
-      const data = await response.json();
-      expect(data.success).toBe(false);
-      expect(data.error.code).toBe("AI_NOT_CONFIGURED");
-    });
-
-    it("should handle rate limit error", async () => {
-      mockResearchCompany.mockRejectedValue(
-        new CompanyResearchError("Rate limited", "RATE_LIMIT")
-      );
-
-      const response = await POST(createRequest({ companyName: "Google" }));
-
-      expect(response.status).toBe(429);
-      const data = await response.json();
-      expect(data.success).toBe(false);
-      expect(data.error.code).toBe("RATE_LIMIT");
-    });
-
-    it("should handle auth error", async () => {
-      mockResearchCompany.mockRejectedValue(
-        new CompanyResearchError("Invalid API key", "AUTH_ERROR")
-      );
-
-      const response = await POST(createRequest({ companyName: "Google" }));
-
-      expect(response.status).toBe(401);
-      const data = await response.json();
-      expect(data.error.code).toBe("AUTH_ERROR");
-    });
-
-    it("should handle generic errors", async () => {
-      mockResearchCompany.mockRejectedValue(new Error("Unknown error"));
-
-      const response = await POST(createRequest({ companyName: "Google" }));
-
-      expect(response.status).toBe(500);
-      const data = await response.json();
-      expect(data.success).toBe(false);
-      expect(data.error.code).toBe("RESEARCH_ERROR");
+      expect(mockFetch).toHaveBeenCalled();
     });
 
     it("should normalize company name to lowercase for caching", async () => {
-      const mockResult = createMockResult();
-      mockResearchCompany.mockResolvedValue(mockResult);
+      mockCompanyWhere.mockResolvedValue([]);
 
       await POST(createRequest({ companyName: "GOOGLE" }));
 
@@ -262,13 +255,20 @@ describe("Company Research API Route", () => {
       );
     });
 
-    it("should call researchCompany with trimmed company name", async () => {
-      const mockResult = createMockResult();
-      mockResearchCompany.mockResolvedValue(mockResult);
+    it("should trim company name when triggering background process", async () => {
+      mockCompanyWhere.mockResolvedValue([]);
 
       await POST(createRequest({ companyName: "  Google  " }));
 
-      expect(mockResearchCompany).toHaveBeenCalledWith("Google");
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: JSON.stringify({
+            requestId: "test-company-id",
+            companyName: "Google",
+          }),
+        })
+      );
     });
   });
 });
