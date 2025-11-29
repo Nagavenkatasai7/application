@@ -9,6 +9,10 @@ import { parseResumeText } from "@/lib/ai/resume-parser";
 import { isAIConfigured } from "@/lib/ai/config";
 import type { ResumeContent } from "@/lib/validations/resume";
 
+// Allow up to 3 minutes for PDF extraction and AI parsing
+// Vercel Fluid Compute on Hobby plan supports up to 300s
+export const maxDuration = 180;
+
 // POST /api/resumes/upload - Upload a PDF resume
 export async function POST(request: Request) {
   try {
@@ -65,7 +69,17 @@ export async function POST(request: Request) {
       extractedText = await extractTextFromPdf(buffer);
     } catch (error) {
       console.error("Error extracting text from PDF:", error);
-      // Continue without extracted text - not a fatal error
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "PDF_EXTRACTION_FAILED",
+            message:
+              "Could not extract text from PDF. The file may be corrupted or password-protected.",
+          },
+        },
+        { status: 400 }
+      );
     }
 
     // Default content structure
@@ -119,10 +133,22 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("Error uploading resume:", error);
+
+    // Determine specific error type for better user feedback
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    const isTimeout =
+      errorMessage.includes("timeout") || errorMessage.includes("ETIMEDOUT");
+
     return NextResponse.json(
       {
         success: false,
-        error: { code: "UPLOAD_ERROR", message: "Failed to upload resume" },
+        error: {
+          code: isTimeout ? "UPLOAD_TIMEOUT" : "UPLOAD_ERROR",
+          message: isTimeout
+            ? "Resume processing timed out. Please try again with a smaller file."
+            : `Failed to upload resume: ${errorMessage}`,
+        },
       },
       { status: 500 }
     );
