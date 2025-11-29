@@ -80,10 +80,18 @@ jobs:
         run: pnpm add -g vercel@latest
 
       - name: Configure Vercel Environment Variables
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          # Add ANTHROPIC_API_KEY to Vercel (skip if already exists)
-          echo "${{ secrets.ANTHROPIC_API_KEY }}" | vercel env add ANTHROPIC_API_KEY production --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
-          echo "anthropic" | vercel env add AI_PROVIDER production --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+          # Remove existing env vars if they exist, then add new ones
+          vercel env rm ANTHROPIC_API_KEY production --yes --token=$VERCEL_TOKEN 2>/dev/null || true
+          vercel env rm AI_PROVIDER production --yes --token=$VERCEL_TOKEN 2>/dev/null || true
+
+          # Add env vars
+          echo "${{ secrets.ANTHROPIC_API_KEY }}" | vercel env add ANTHROPIC_API_KEY production --token=$VERCEL_TOKEN
+          echo "anthropic" | vercel env add AI_PROVIDER production --token=$VERCEL_TOKEN
+
+          echo "Environment variables configured"
 
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=${{ github.event.inputs.environment || 'production' }} --token=${{ secrets.VERCEL_TOKEN }}
