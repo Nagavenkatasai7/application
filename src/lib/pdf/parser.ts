@@ -1,8 +1,5 @@
-// pdf-parse v2 is configured as serverExternalPackages in next.config.ts
-// This allows it to run as a native Node.js module
-// v2 uses a class-based API with PDFParse class
-
-import { PDFParse } from "pdf-parse";
+// pdf-parse is dynamically imported to avoid serverless bundling issues
+// This ensures the route loads successfully even if pdf-parse fails to initialize
 
 export interface ParsedPdf {
   text: string;
@@ -16,31 +13,28 @@ export interface ParsedPdf {
 
 /**
  * Parse a PDF buffer and extract text content
+ * Uses dynamic import to avoid bundling issues on Vercel serverless
  * @param buffer - PDF file as Buffer
  * @returns Parsed PDF data including text and metadata
  */
 export async function parsePdf(buffer: Buffer): Promise<ParsedPdf> {
-  let parser: PDFParse | null = null;
+  console.log(`[PDF] Starting extraction, buffer size: ${buffer.length} bytes`);
 
   try {
-    console.log(`[PDF] Starting extraction, buffer size: ${buffer.length} bytes`);
+    // Dynamic import to avoid bundling issues
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse = require("pdf-parse");
 
-    // pdf-parse v2 uses class-based API with data option for buffers
-    parser = new PDFParse({ data: buffer });
-
-    // Extract text content
-    const textResult = await parser.getText();
-
-    // Extract metadata
-    const infoResult = await parser.getInfo();
+    // pdf-parse v1 style API (default export is a function)
+    const data = await pdfParse(buffer);
 
     const result = {
-      text: textResult.text?.trim() || "",
-      numPages: textResult.total || 0,
+      text: data.text?.trim() || "",
+      numPages: data.numpages || 0,
       info: {
-        title: infoResult.info?.Title as string | undefined,
-        author: infoResult.info?.Author as string | undefined,
-        creator: infoResult.info?.Creator as string | undefined,
+        title: data.info?.Title as string | undefined,
+        author: data.info?.Author as string | undefined,
+        creator: data.info?.Creator as string | undefined,
       },
     };
 
@@ -55,15 +49,6 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedPdf> {
 
     // Throw with more context for debugging
     throw new Error(`PDF extraction failed: ${errorMessage}`);
-  } finally {
-    // Always destroy the parser to free resources
-    if (parser) {
-      try {
-        await parser.destroy();
-      } catch (destroyError) {
-        console.error("[PDF] Error destroying parser:", destroyError);
-      }
-    }
   }
 }
 
