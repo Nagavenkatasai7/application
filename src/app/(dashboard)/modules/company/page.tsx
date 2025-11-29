@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Building2,
   Loader2,
@@ -22,6 +22,7 @@ import {
   Award,
   Lightbulb,
   CheckCircle,
+  Circle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,13 +43,77 @@ interface APIResponse<T> {
   success: boolean;
   data?: T;
   cached?: boolean;
+  status?: "processing" | "pending" | "completed" | "failed";
+  requestId?: string;
   error?: { code: string; message: string };
 }
 
+interface StatusResponse {
+  success: boolean;
+  status: "pending" | "processing" | "completed" | "failed";
+  data?: CompanyResearchResult;
+  error?: { code: string; message: string };
+}
+
+// Processing steps for progress indicator
+const PROCESSING_STEPS = [
+  "Initializing research...",
+  "Analyzing company profile",
+  "Evaluating culture dimensions",
+  "Gathering employee insights",
+  "Preparing interview tips",
+];
+
 export default function CompanyResearchPage() {
   const [companyName, setCompanyName] = useState("");
+  const [searchedName, setSearchedName] = useState("");
   const [result, setResult] = useState<CompanyResearchResult | null>(null);
   const [wasCached, setWasCached] = useState(false);
+  const [pollingId, setPollingId] = useState<string | null>(null);
+  const [processingStep, setProcessingStep] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  // Status polling query
+  const statusQuery = useQuery<StatusResponse>({
+    queryKey: ["company-status", pollingId],
+    queryFn: async () => {
+      const res = await fetch(`/api/modules/company/status/${pollingId}`);
+      let data: StatusResponse;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("Failed to check status");
+      }
+      return data;
+    },
+    enabled: !!pollingId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.status === "completed" || data?.status === "failed") {
+        return false; // Stop polling
+      }
+      return 2000; // Poll every 2 seconds
+    },
+  });
+
+  // Handle status updates
+  useEffect(() => {
+    if (statusQuery.data?.status === "completed" && statusQuery.data.data) {
+      setResult(statusQuery.data.data);
+      setPollingId(null);
+      setProcessingStep(0);
+      setWasCached(false);
+    }
+    if (statusQuery.data?.status === "failed") {
+      setError(statusQuery.data.error?.message || "Company research failed");
+      setPollingId(null);
+      setProcessingStep(0);
+    }
+    // Animate progress steps while processing
+    if (statusQuery.data?.status === "processing" || statusQuery.data?.status === "pending") {
+      setProcessingStep((prev) => (prev < PROCESSING_STEPS.length - 1 ? prev + 1 : prev));
+    }
+  }, [statusQuery.data]);
 
   // Company research mutation
   const researchMutation = useMutation({
@@ -68,14 +133,26 @@ export default function CompanyResearchPage() {
         throw new Error(res.ok ? "Invalid response from server" : `Server error: ${res.status}`);
       }
 
-      if (!data.success) {
+      if (!data.success && !data.status) {
         throw new Error(data.error?.message || "Research failed");
       }
-      return { result: data.data!, cached: data.cached || false };
+      return data;
     },
-    onSuccess: ({ result, cached }) => {
-      setResult(result);
-      setWasCached(cached);
+    onSuccess: (data) => {
+      if (data.status === "processing" && data.requestId) {
+        // Start polling
+        setPollingId(data.requestId);
+        setProcessingStep(1);
+        setError(null);
+      } else if (data.data) {
+        // Immediate result (cached)
+        setResult(data.data);
+        setWasCached(data.cached || false);
+        setError(null);
+      }
+    },
+    onError: (err: Error) => {
+      setError(err.message);
     },
   });
 
@@ -83,6 +160,10 @@ export default function CompanyResearchPage() {
     if (!companyName.trim()) return;
     setResult(null);
     setWasCached(false);
+    setPollingId(null);
+    setProcessingStep(0);
+    setError(null);
+    setSearchedName(companyName.trim());
     researchMutation.mutate(companyName.trim());
   };
 
@@ -91,6 +172,11 @@ export default function CompanyResearchPage() {
       handleResearch();
     }
   };
+
+  // Loading state includes both mutation pending and polling
+  const isLoading = researchMutation.isPending || !!pollingId;
+  const hasError = !!error || researchMutation.isError;
+  const errorMessage = error || researchMutation.error?.message || "Failed to research company";
 
   // Calculate average culture score
   const avgCultureScore = result?.cultureDimensions.length
@@ -127,14 +213,14 @@ export default function CompanyResearchPage() {
                 onChange={(e) => setCompanyName(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g., Google, Stripe, Anthropic..."
-                disabled={researchMutation.isPending}
+                disabled={isLoading}
                 className="flex-1"
               />
               <Button
                 onClick={handleResearch}
-                disabled={!companyName.trim() || researchMutation.isPending}
+                disabled={!companyName.trim() || isLoading}
               >
-                {researchMutation.isPending ? (
+                {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Researching...
@@ -151,27 +237,57 @@ export default function CompanyResearchPage() {
         </Card>
 
         {/* Error State */}
-        {researchMutation.isError && (
+        {hasError && !isLoading && (
           <Card className="border-destructive">
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="h-5 w-5" />
-                <p>{researchMutation.error?.message || "Failed to research company"}</p>
+                <p>{errorMessage}</p>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={handleResearch}
+              >
+                Retry
+              </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Loading State */}
-        {researchMutation.isPending && (
+        {/* Enhanced Loading State with Progress */}
+        {isLoading && (
           <Card>
             <CardContent className="py-12">
-              <div className="flex flex-col items-center gap-4">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <div className="text-center">
-                  <p className="font-medium">Researching {companyName}...</p>
-                  <p className="text-sm text-muted-foreground">
-                    Gathering culture insights, interview tips, and company intelligence
+              <div className="flex flex-col items-center gap-6">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <div className="text-center space-y-4 w-full max-w-md">
+                  <p className="font-medium text-lg">Researching {searchedName}...</p>
+
+                  {/* Progress Steps */}
+                  <div className="space-y-2 text-left">
+                    {PROCESSING_STEPS.map((step, idx) => (
+                      <div
+                        key={step}
+                        className={`flex items-center gap-3 text-sm transition-all duration-300 ${
+                          idx <= processingStep ? "opacity-100" : "opacity-30"
+                        }`}
+                      >
+                        {idx < processingStep ? (
+                          <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        ) : idx === processingStep ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+                        ) : (
+                          <Circle className="h-4 w-4 text-muted-foreground/30 flex-shrink-0" />
+                        )}
+                        <span>{step}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="text-xs text-muted-foreground mt-4">
+                    This usually takes 15-30 seconds for new companies.
                   </p>
                 </div>
               </div>

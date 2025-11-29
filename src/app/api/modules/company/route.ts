@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import { db, companies } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
-import { researchCompany, CompanyResearchError } from "@/lib/ai/company";
 import { companyResearchRequestSchema } from "@/lib/validations/company";
 
-// Vercel function configuration - use maximum allowed duration
-export const maxDuration = 60; // seconds (requires Pro plan for >10s)
+// Keep duration low for quick response - actual AI work happens in background
+export const maxDuration = 10;
 
 /**
  * Cache TTL in milliseconds (7 days)
@@ -14,26 +13,38 @@ export const maxDuration = 60; // seconds (requires Pro plan for >10s)
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
 /**
+ * Stale processing timeout (5 minutes) - if processing started but not completed
+ */
+const STALE_PROCESSING_TIMEOUT = 5 * 60 * 1000;
+
+/**
  * POST /api/modules/company - Research a company
+ *
+ * This endpoint uses background processing to avoid Vercel Hobby plan timeouts.
+ * For uncached companies, it returns a processing status and the client polls for results.
  *
  * Request Body:
  * {
  *   companyName: string
  * }
  *
- * Response:
+ * Response (cached):
  * {
- *   success: boolean,
- *   data?: CompanyResearchResult,
- *   cached?: boolean,
- *   error?: { code: string, message: string }
+ *   success: true,
+ *   data: CompanyResearchResult,
+ *   cached: true
+ * }
+ *
+ * Response (processing):
+ * {
+ *   success: true,
+ *   status: "processing",
+ *   requestId: string
  * }
  *
  * Error Codes:
  * - INVALID_JSON: Invalid JSON in request body
  * - VALIDATION_ERROR: Invalid request body
- * - AI_NOT_CONFIGURED: AI API key not set
- * - RESEARCH_ERROR: Failed to research company
  */
 export async function POST(request: Request) {
   try {
@@ -72,87 +83,88 @@ export async function POST(request: Request) {
     const { companyName } = validation.data;
     const normalizedName = companyName.trim().toLowerCase();
 
-    // Check for cached company data
+    // Check for existing company record
     const [existingCompany] = await db
       .select()
       .from(companies)
       .where(eq(companies.name, normalizedName));
 
-    // If we have cached data that's still valid, return it
-    if (existingCompany && existingCompany.cachedAt) {
+    // CASE 1: Valid cached data - return immediately
+    if (existingCompany?.status === "completed" && existingCompany.cachedAt) {
       const cacheAge = Date.now() - existingCompany.cachedAt.getTime();
       if (cacheAge < CACHE_TTL && existingCompany.cultureSignals) {
-        // Parse the cached data
-        const cachedResult = existingCompany.cultureSignals as Record<string, unknown>;
         return NextResponse.json({
           success: true,
-          data: cachedResult,
+          data: existingCompany.cultureSignals,
           cached: true,
         });
       }
     }
 
-    // Research the company using AI
-    const result = await researchCompany(companyName.trim());
+    // CASE 2: Already processing - check if stale
+    if (existingCompany?.status === "processing") {
+      const processingAge = existingCompany.processingStartedAt
+        ? Date.now() - existingCompany.processingStartedAt.getTime()
+        : Infinity;
 
-    // Cache the result in the database
-    if (existingCompany) {
-      // Update existing company
+      // If not stale, return current processing status
+      if (processingAge < STALE_PROCESSING_TIMEOUT) {
+        return NextResponse.json({
+          success: true,
+          status: "processing",
+          requestId: existingCompany.id,
+        });
+      }
+      // If stale, will re-trigger below
+    }
+
+    // CASE 3: Start new processing
+    const requestId = existingCompany?.id || uuidv4();
+
+    // Create/update record with pending status
+    if (!existingCompany) {
+      await db.insert(companies).values({
+        id: requestId,
+        name: normalizedName,
+        status: "pending",
+      });
+    } else {
       await db
         .update(companies)
         .set({
-          cultureSignals: result as unknown as Record<string, unknown>,
-          cachedAt: new Date(),
+          status: "pending",
+          errorMessage: null,
+          processingStartedAt: null,
         })
         .where(eq(companies.id, existingCompany.id));
-    } else {
-      // Create new company entry
-      await db.insert(companies).values({
-        id: uuidv4(),
-        name: normalizedName,
-        cultureSignals: result as unknown as Record<string, unknown>,
-        cachedAt: new Date(),
-      });
     }
+
+    // Fire-and-forget background processing
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    // Don't await - fire and forget
+    fetch(`${baseUrl}/api/modules/company/process`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId, companyName: companyName.trim() }),
+    }).catch((err) => console.error("Failed to trigger background process:", err));
 
     return NextResponse.json({
       success: true,
-      data: result,
-      cached: false,
+      status: "processing",
+      requestId,
     });
   } catch (error) {
     console.error("Company research error:", error);
 
-    // Handle CompanyResearchError with specific codes
-    if (error instanceof CompanyResearchError) {
-      const statusMap: Record<string, number> = {
-        AI_NOT_CONFIGURED: 503,
-        INVALID_INPUT: 400,
-        AUTH_ERROR: 401,
-        RATE_LIMIT: 429,
-        PARSE_ERROR: 500,
-        API_ERROR: 502,
-      };
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: error.code,
-            message: error.message,
-          },
-        },
-        { status: statusMap[error.code] || 500 }
-      );
-    }
-
-    // Generic error
     return NextResponse.json(
       {
         success: false,
         error: {
-          code: "RESEARCH_ERROR",
-          message: "Failed to research company",
+          code: "INTERNAL_ERROR",
+          message: "Failed to process request",
         },
       },
       { status: 500 }

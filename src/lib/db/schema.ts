@@ -57,6 +57,10 @@ export const companies = pgTable("companies", {
   cultureSignals: jsonb("culture_signals"), // AI-extracted values (1-5 scale per dimension)
   competitors: jsonb("competitors"), // JSON array
   cachedAt: timestamp("cached_at"), // 7-day TTL
+  // Background processing fields
+  status: text("status").default("completed"), // "pending" | "processing" | "completed" | "failed"
+  errorMessage: text("error_message"), // Error message if processing failed
+  processingStartedAt: timestamp("processing_started_at"), // When processing began
 });
 
 // Jobs table
