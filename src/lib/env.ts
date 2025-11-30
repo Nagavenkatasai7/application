@@ -5,10 +5,9 @@ import { z } from "zod";
  */
 const envSchema = z.object({
   // Database
-  DATABASE_URL: z
-    .string()
-    .default("file:./data/resume-maker.db")
-    .describe("SQLite database file path"),
+  // Note: POSTGRES_URL is handled by @vercel/postgres package directly
+  // It reads from process.env.POSTGRES_URL automatically
+  // No validation needed here as Vercel injects it at runtime
 
   // AI Provider
   AI_PROVIDER: z

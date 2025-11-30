@@ -22,6 +22,7 @@ import {
   FolderOpen,
   Star,
   FileText,
+  Wand2,
 } from "lucide-react";
 import Link from "next/link";
 import type { ResumeResponse, ResumeContent } from "@/lib/validations/resume";
@@ -161,12 +162,20 @@ export default function ResumeDetailPage() {
             </div>
           </div>
           {!isLoading && (
-            <Button asChild>
-              <Link href={`/resumes/${resumeId}/edit`}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Resume
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link href={`/resumes/${resumeId}/tailor`}>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  Tailor for Job
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href={`/resumes/${resumeId}/edit`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Resume
+                </Link>
+              </Button>
+            </div>
           )}
         </div>
 
