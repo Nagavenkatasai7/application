@@ -1,5 +1,6 @@
-// pdf-parse is dynamically imported to avoid serverless bundling issues
-// This ensures the route loads successfully even if pdf-parse fails to initialize
+// unpdf is specifically designed for serverless/edge environments
+// It handles PDF.js worker configuration automatically
+import { extractText, getDocumentProxy } from "unpdf";
 
 export interface ParsedPdf {
   text: string;
@@ -13,7 +14,7 @@ export interface ParsedPdf {
 
 /**
  * Parse a PDF buffer and extract text content
- * Uses dynamic import to avoid bundling issues on Vercel serverless
+ * Uses unpdf which is optimized for serverless environments
  * @param buffer - PDF file as Buffer
  * @returns Parsed PDF data including text and metadata
  */
@@ -21,21 +22,39 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedPdf> {
   console.log(`[PDF] Starting extraction, buffer size: ${buffer.length} bytes`);
 
   try {
-    // Dynamic import to avoid bundling issues
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require("pdf-parse");
+    // Convert Buffer to Uint8Array for unpdf
+    const uint8Array = new Uint8Array(buffer);
 
-    // pdf-parse v1 style API (default export is a function)
-    const data = await pdfParse(buffer);
+    // Extract text using unpdf (serverless-compatible)
+    const { text, totalPages } = await extractText(uint8Array, {
+      mergePages: true,
+    });
+
+    // Try to get metadata
+    let info: ParsedPdf["info"] = {};
+    try {
+      const pdf = await getDocumentProxy(uint8Array);
+      const metadata = await pdf.getMetadata();
+      if (metadata?.info) {
+        const pdfInfo = metadata.info as Record<string, unknown>;
+        info = {
+          title: pdfInfo.Title as string | undefined,
+          author: pdfInfo.Author as string | undefined,
+          creator: pdfInfo.Creator as string | undefined,
+        };
+      }
+    } catch (metadataError) {
+      console.warn("[PDF] Could not extract metadata:", metadataError);
+      // Continue without metadata - text extraction is more important
+    }
+
+    // When mergePages is true, text is a string; otherwise it's an array
+    const extractedText = Array.isArray(text) ? text.join("\n") : String(text);
 
     const result = {
-      text: data.text?.trim() || "",
-      numPages: data.numpages || 0,
-      info: {
-        title: data.info?.Title as string | undefined,
-        author: data.info?.Author as string | undefined,
-        creator: data.info?.Creator as string | undefined,
-      },
+      text: extractedText.trim(),
+      numPages: totalPages || 0,
+      info,
     };
 
     console.log(
