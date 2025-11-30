@@ -141,7 +141,7 @@ function extractJsonFromResponse(text: string): string {
   console.log("[Uniqueness] Raw AI response preview:", text.substring(0, 500));
 
   // Clean the text first - remove any BOM or control characters
-  let cleanText = text.replace(/^\uFEFF/, "").trim();
+  const cleanText = text.replace(/^\uFEFF/, "").trim();
 
   // Strategy 1: Try to extract JSON from markdown code block (most common format)
   // Use a greedy match to get the LAST closing ``` to handle nested code examples
