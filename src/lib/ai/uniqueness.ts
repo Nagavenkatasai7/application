@@ -226,13 +226,22 @@ function extractJsonFromResponse(text: string): string {
 function repairJson(jsonStr: string): string {
   let repaired = jsonStr;
 
+  // Fix single quotes to double quotes for property names and string values
+  // This handles cases like {'key': 'value'} -> {"key": "value"}
+  // Be careful not to replace single quotes inside double-quoted strings
+  repaired = repaired.replace(/'/g, '"');
+
+  // Fix unquoted property names (e.g., {key: "value"} -> {"key": "value"})
+  // Match property names that are not quoted
+  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+
   // Remove trailing commas before ] or }
   repaired = repaired.replace(/,\s*]/g, "]");
   repaired = repaired.replace(/,\s*}/g, "}");
 
   // Fix unescaped newlines in strings (common AI issue)
   // This is a simplified fix - replaces actual newlines inside strings with \n
-  repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (match, p1, p2) => {
+  repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (_match, p1, p2) => {
     return `"${p1}\\n${p2}"`;
   });
 

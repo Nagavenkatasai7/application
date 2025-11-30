@@ -244,6 +244,12 @@ function extractJsonFromResponse(text: string): string {
 function repairJson(jsonStr: string): string {
   let repaired = jsonStr;
 
+  // Fix single quotes to double quotes for property names and string values
+  repaired = repaired.replace(/'/g, '"');
+
+  // Fix unquoted property names (e.g., {key: "value"} -> {"key": "value"})
+  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+
   // Remove trailing commas before ] or }
   repaired = repaired.replace(/,\s*]/g, "]");
   repaired = repaired.replace(/,\s*}/g, "}");
