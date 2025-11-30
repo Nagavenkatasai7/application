@@ -317,9 +317,13 @@ export async function analyzeContext(
   try {
     const client = createClient();
 
-    const response = await withRetry(
-      () =>
-        client.messages.create({
+    // Use streaming API for better reliability - Anthropic's official recommendation
+    // Streaming keeps the connection alive and reduces 529 overloaded errors
+    const stream = await withRetry(
+      async () => {
+        let accumulatedText = "";
+
+        const streamResponse = client.messages.stream({
           model: modelConfig.model,
           max_tokens: 4000,
           temperature: 0.3, // Lower temperature for consistent analysis
@@ -330,13 +334,23 @@ export async function analyzeContext(
               content: userPrompt,
             },
           ],
-        }),
+        });
+
+        // Collect streamed text chunks
+        streamResponse.on("text", (text) => {
+          accumulatedText += text;
+        });
+
+        // Wait for stream to complete and return accumulated text
+        await streamResponse.finalMessage();
+        return accumulatedText;
+      },
       { timeBudgetMs: 170000 } // 170s budget (10s buffer for Vercel 180s limit)
     );
 
-    // Extract text content
-    const textContent = response.content.find((c) => c.type === "text");
-    if (!textContent || textContent.type !== "text") {
+    // Extract text content from accumulated stream
+    const textContent = stream;
+    if (!textContent || textContent.length === 0) {
       throw new ContextError(
         "No response received from AI",
         "EMPTY_RESPONSE"
@@ -389,7 +403,7 @@ export async function analyzeContext(
     };
 
     try {
-      rawResult = parseAIJsonResponse<typeof rawResult>(textContent.text, "Context");
+      rawResult = parseAIJsonResponse<typeof rawResult>(textContent, "Context");
     } catch (parseError) {
       const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
       throw new ContextError(
