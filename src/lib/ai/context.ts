@@ -5,6 +5,7 @@ import {
   getModelConfig,
 } from "./config";
 import { formatResumeForPrompt } from "./prompts";
+import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
 import type { ResumeContent } from "@/lib/validations/resume";
 import type { ContextResult, MatchedSkill, MissingRequirement, ExperienceAlignment } from "@/lib/validations/context";
 import { getContextScoreLabel } from "@/lib/validations/context";
@@ -74,20 +75,20 @@ Calculate an alignment score from 0-100:
 
 Return a JSON object with this structure:
 {
-  "score": number (0-100),
+  "score": 75,
   "summary": "2-3 sentence executive summary of the alignment",
   "matchedSkills": [
     {
       "skill": "Skill name",
-      "source": "technical" | "soft" | "experience" | "education",
-      "strength": "exact" | "related" | "transferable",
+      "source": "technical",
+      "strength": "exact",
       "evidence": "Where this skill was found in the resume"
     }
   ],
   "missingRequirements": [
     {
       "requirement": "What's missing",
-      "importance": "critical" | "important" | "nice_to_have",
+      "importance": "critical",
       "suggestion": "How to address this gap"
     }
   ],
@@ -96,23 +97,23 @@ Return a JSON object with this structure:
       "experienceId": "ID from resume",
       "experienceTitle": "Job title",
       "companyName": "Company name",
-      "relevance": "high" | "medium" | "low",
+      "relevance": "high",
       "matchedAspects": ["Aspect 1", "Aspect 2"],
       "explanation": "Why this experience is relevant or not"
     }
   ],
   "keywordCoverage": {
-    "matched": number,
-    "total": number,
-    "percentage": number,
+    "matched": 10,
+    "total": 15,
+    "percentage": 67,
     "keywords": [
-      { "keyword": "keyword", "found": boolean, "location": "Where found or null" }
+      { "keyword": "React", "found": true, "location": "Skills section" }
     ]
   },
   "suggestions": [
     {
-      "category": "skills" | "experience" | "keywords" | "tailoring",
-      "priority": "high" | "medium" | "low",
+      "category": "skills",
+      "priority": "high",
       "recommendation": "Specific action to take"
     }
   ],
@@ -123,7 +124,14 @@ Return a JSON object with this structure:
   }
 }
 
-Be specific and actionable. Reference actual content from both the resume and job description. Do not fabricate or assume information not present.`;
+IMPORTANT: Valid values for "source": "technical", "soft", "experience", "education"
+Valid values for "strength": "exact", "related", "transferable"
+Valid values for "importance": "critical", "important", "nice_to_have"
+Valid values for "relevance": "high", "medium", "low"
+Valid values for "category": "skills", "experience", "keywords", "tailoring"
+Valid values for "priority": "high", "medium", "low"
+
+Be specific and actionable. Reference actual content from both the resume and job description. Do not fabricate or assume information not present.` + JSON_OUTPUT_INSTRUCTIONS;
 
 /**
  * Format job data for the prompt
@@ -203,122 +211,6 @@ function createClient(): Anthropic {
     apiKey: config.apiKey,
     timeout: config.timeout,
   });
-}
-
-/**
- * Extract JSON from AI response - handles various formats Claude might return
- */
-function extractJsonFromResponse(text: string): string {
-  // Clean the text first - remove any BOM or control characters
-  const cleanText = text.replace(/^\uFEFF/, "").trim();
-
-  // Strategy 1: Try to extract JSON from markdown code block (end-anchored)
-  const jsonBlockMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)```\s*$/);
-  if (jsonBlockMatch) {
-    const extracted = jsonBlockMatch[1].trim();
-    if (extracted.startsWith("{") && extracted.endsWith("}")) {
-      return extracted;
-    }
-  }
-
-  // Strategy 2: Try non-anchored match for code block
-  const jsonBlockMatch2 = cleanText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (jsonBlockMatch2) {
-    const extracted = jsonBlockMatch2[1].trim();
-    if (extracted.startsWith("{") && extracted.endsWith("}")) {
-      return extracted;
-    }
-  }
-
-  // Strategy 3: Find JSON object with balanced brace matching
-  const startIndex = cleanText.indexOf("{");
-  if (startIndex !== -1) {
-    let braceCount = 0;
-    let endIndex = -1;
-    let inString = false;
-    let escapeNext = false;
-
-    for (let i = startIndex; i < cleanText.length; i++) {
-      const char = cleanText[i];
-
-      if (escapeNext) {
-        escapeNext = false;
-        continue;
-      }
-
-      if (char === "\\") {
-        escapeNext = true;
-        continue;
-      }
-
-      if (char === '"' && !escapeNext) {
-        inString = !inString;
-        continue;
-      }
-
-      if (!inString) {
-        if (char === "{") braceCount++;
-        if (char === "}") braceCount--;
-        if (braceCount === 0) {
-          endIndex = i;
-          break;
-        }
-      }
-    }
-
-    if (endIndex !== -1) {
-      return cleanText.substring(startIndex, endIndex + 1);
-    }
-  }
-
-  // Strategy 4: Last resort - try to find any valid JSON structure
-  const lastBrace = cleanText.lastIndexOf("}");
-  const firstBrace = cleanText.indexOf("{");
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return cleanText.substring(firstBrace, lastBrace + 1);
-  }
-
-  return cleanText;
-}
-
-/**
- * Attempt to repair common JSON issues
- */
-function repairJson(jsonStr: string): string {
-  let repaired = jsonStr;
-
-  // Fix single quotes to double quotes for property names and string values
-  repaired = repaired.replace(/'/g, '"');
-
-  // Fix unquoted property names (e.g., {key: "value"} -> {"key": "value"})
-  // Use multiple passes to catch nested objects
-  for (let i = 0; i < 3; i++) {
-    repaired = repaired.replace(/([{,][\s\n\r]*)([a-zA-Z_][a-zA-Z0-9_]*)([\s\n\r]*:)/gm, '$1"$2"$3');
-  }
-
-  // Remove trailing commas before ] or }
-  repaired = repaired.replace(/,[\s\n\r]*]/g, "]");
-  repaired = repaired.replace(/,[\s\n\r]*}/g, "}");
-
-  // Fix unescaped newlines in strings
-  repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (_match, p1, p2) => {
-    return `"${p1}\\n${p2}"`;
-  });
-
-  // Try to close unclosed brackets/braces if truncated
-  const openBraces = (repaired.match(/{/g) || []).length;
-  const closeBraces = (repaired.match(/}/g) || []).length;
-  const openBrackets = (repaired.match(/\[/g) || []).length;
-  const closeBrackets = (repaired.match(/]/g) || []).length;
-
-  for (let i = 0; i < openBrackets - closeBrackets; i++) {
-    repaired += "]";
-  }
-  for (let i = 0; i < openBraces - closeBraces; i++) {
-    repaired += "}";
-  }
-
-  return repaired;
 }
 
 /**
@@ -446,34 +338,8 @@ export async function analyzeContext(
       );
     }
 
-    // Parse JSON response
-    const jsonStr = extractJsonFromResponse(textContent.text);
-
-    // Always apply repair first for robustness
-    const rawJsonStr = jsonStr;
-    const repairedJsonStr = repairJson(rawJsonStr);
-
-    console.log("[Context] Extracted JSON length:", rawJsonStr.length);
-    console.log("[Context] Repaired JSON (first 200 chars):", repairedJsonStr.substring(0, 200));
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(repairedJsonStr);
-    } catch (parseError) {
-      console.error("[Context] JSON parse error:", parseError);
-      console.error("[Context] Raw JSON (first 500 chars):", rawJsonStr.substring(0, 500));
-      console.error("[Context] Repaired JSON (first 500 chars):", repairedJsonStr.substring(0, 500));
-
-      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
-      throw new ContextError(
-        `Failed to parse AI response: ${errorMessage}`,
-        "PARSE_ERROR",
-        parseError
-      );
-    }
-
-    // Type-check and transform the response
-    const rawResult = parsed as {
+    // Parse JSON response using shared utility with state-machine repair
+    let rawResult: {
       score?: number;
       summary?: string;
       matchedSkills?: Array<{
@@ -516,6 +382,17 @@ export async function analyzeContext(
         overallFit?: string;
       };
     };
+
+    try {
+      rawResult = parseAIJsonResponse<typeof rawResult>(textContent.text, "Context");
+    } catch (parseError) {
+      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
+      throw new ContextError(
+        `Failed to parse AI response: ${errorMessage}`,
+        "PARSE_ERROR",
+        parseError
+      );
+    }
 
     // Transform matched skills
     const matchedSkills: MatchedSkill[] = (rawResult.matchedSkills || []).map((s) => ({

@@ -4,6 +4,7 @@ import {
   isAIConfigured,
   getModelConfig,
 } from "./config";
+import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
 import type {
   CompanyResearchResult,
   CultureDimension,
@@ -99,18 +100,18 @@ Return a JSON object with this structure:
     "overallRating": 3.8,
     "pros": ["Pro 1", "Pro 2", "Pro 3"],
     "cons": ["Con 1", "Con 2"],
-    "recommendToFriend": "percentage or sentiment",
-    "ceoApproval": "percentage or sentiment"
+    "recommendToFriend": "75%",
+    "ceoApproval": "80%"
   },
 
   "fundingData": {
-    "stage": "Series B / Public / Private",
-    "totalRaised": "$X million/billion",
-    "valuation": "$X billion or N/A",
+    "stage": "Series B",
+    "totalRaised": "$50 million",
+    "valuation": "$200 million",
     "lastRound": {
-      "round": "Series name",
-      "amount": "$X million",
-      "date": "Year",
+      "round": "Series B",
+      "amount": "$30 million",
+      "date": "2023",
       "investors": ["Investor 1", "Investor 2"]
     },
     "notableInvestors": ["Investor 1", "Investor 2"]
@@ -119,15 +120,15 @@ Return a JSON object with this structure:
   "competitors": [
     {
       "name": "Competitor name",
-      "relationship": "Direct competitor in X / Larger player / Emerging threat"
+      "relationship": "Direct competitor in X"
     }
   ],
 
   "interviewTips": [
     {
-      "category": "preparation" | "technical" | "behavioral" | "cultural_fit" | "questions_to_ask",
+      "category": "preparation",
       "tip": "Specific actionable tip",
-      "priority": "high" | "medium" | "low"
+      "priority": "high"
     }
   ],
   "commonInterviewTopics": ["Topic 1", "Topic 2", "Topic 3"],
@@ -143,7 +144,11 @@ Return a JSON object with this structure:
   "keyTakeaways": ["Key insight 1", "Key insight 2", "Key insight 3"]
 }
 
-Be specific and actionable. Provide honest assessments based on publicly available information. If certain information is not available or uncertain, indicate that rather than fabricating details.`;
+IMPORTANT: Valid values for "category": "preparation", "technical", "behavioral", "cultural_fit", "questions_to_ask"
+Valid values for "priority": "high", "medium", "low"
+Score values must be numbers between 1 and 5.
+
+Be specific and actionable. Provide honest assessments based on publicly available information. If certain information is not available or uncertain, indicate that rather than fabricating details.` + JSON_OUTPUT_INSTRUCTIONS;
 
 /**
  * Build the user prompt for company research
@@ -189,122 +194,6 @@ function createClient(): Anthropic {
     apiKey: config.apiKey,
     timeout: config.timeout,
   });
-}
-
-/**
- * Extract JSON from AI response - handles various formats Claude might return
- */
-function extractJsonFromResponse(text: string): string {
-  // Clean the text first - remove any BOM or control characters
-  const cleanText = text.replace(/^\uFEFF/, "").trim();
-
-  // Strategy 1: Try to extract JSON from markdown code block (end-anchored)
-  const jsonBlockMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)```\s*$/);
-  if (jsonBlockMatch) {
-    const extracted = jsonBlockMatch[1].trim();
-    if (extracted.startsWith("{") && extracted.endsWith("}")) {
-      return extracted;
-    }
-  }
-
-  // Strategy 2: Try non-anchored match for code block
-  const jsonBlockMatch2 = cleanText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (jsonBlockMatch2) {
-    const extracted = jsonBlockMatch2[1].trim();
-    if (extracted.startsWith("{") && extracted.endsWith("}")) {
-      return extracted;
-    }
-  }
-
-  // Strategy 3: Find JSON object with balanced brace matching
-  const startIndex = cleanText.indexOf("{");
-  if (startIndex !== -1) {
-    let braceCount = 0;
-    let endIndex = -1;
-    let inString = false;
-    let escapeNext = false;
-
-    for (let i = startIndex; i < cleanText.length; i++) {
-      const char = cleanText[i];
-
-      if (escapeNext) {
-        escapeNext = false;
-        continue;
-      }
-
-      if (char === "\\") {
-        escapeNext = true;
-        continue;
-      }
-
-      if (char === '"' && !escapeNext) {
-        inString = !inString;
-        continue;
-      }
-
-      if (!inString) {
-        if (char === "{") braceCount++;
-        if (char === "}") braceCount--;
-        if (braceCount === 0) {
-          endIndex = i;
-          break;
-        }
-      }
-    }
-
-    if (endIndex !== -1) {
-      return cleanText.substring(startIndex, endIndex + 1);
-    }
-  }
-
-  // Strategy 4: Last resort - try to find any valid JSON structure
-  const lastBrace = cleanText.lastIndexOf("}");
-  const firstBrace = cleanText.indexOf("{");
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return cleanText.substring(firstBrace, lastBrace + 1);
-  }
-
-  return cleanText;
-}
-
-/**
- * Attempt to repair common JSON issues
- */
-function repairJson(jsonStr: string): string {
-  let repaired = jsonStr;
-
-  // Fix single quotes to double quotes for property names and string values
-  repaired = repaired.replace(/'/g, '"');
-
-  // Fix unquoted property names (e.g., {key: "value"} -> {"key": "value"})
-  // Use multiple passes to catch nested objects
-  for (let i = 0; i < 3; i++) {
-    repaired = repaired.replace(/([{,][\s\n\r]*)([a-zA-Z_][a-zA-Z0-9_]*)([\s\n\r]*:)/gm, '$1"$2"$3');
-  }
-
-  // Remove trailing commas before ] or }
-  repaired = repaired.replace(/,[\s\n\r]*]/g, "]");
-  repaired = repaired.replace(/,[\s\n\r]*}/g, "}");
-
-  // Fix unescaped newlines in strings
-  repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (_match, p1, p2) => {
-    return `"${p1}\\n${p2}"`;
-  });
-
-  // Try to close unclosed brackets/braces if truncated
-  const openBraces = (repaired.match(/{/g) || []).length;
-  const closeBraces = (repaired.match(/}/g) || []).length;
-  const openBrackets = (repaired.match(/\[/g) || []).length;
-  const closeBrackets = (repaired.match(/]/g) || []).length;
-
-  for (let i = 0; i < openBrackets - closeBrackets; i++) {
-    repaired += "]";
-  }
-  for (let i = 0; i < openBraces - closeBraces; i++) {
-    repaired += "}";
-  }
-
-  return repaired;
 }
 
 /**
@@ -379,34 +268,8 @@ export async function researchCompany(
       );
     }
 
-    // Parse JSON response
-    const jsonStr = extractJsonFromResponse(textContent.text);
-
-    // Always apply repair first for robustness
-    const rawJsonStr = jsonStr;
-    const repairedJsonStr = repairJson(rawJsonStr);
-
-    console.log("[Company] Extracted JSON length:", rawJsonStr.length);
-    console.log("[Company] Repaired JSON (first 200 chars):", repairedJsonStr.substring(0, 200));
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(repairedJsonStr);
-    } catch (parseError) {
-      console.error("[Company] JSON parse error:", parseError);
-      console.error("[Company] Raw JSON (first 500 chars):", rawJsonStr.substring(0, 500));
-      console.error("[Company] Repaired JSON (first 500 chars):", repairedJsonStr.substring(0, 500));
-
-      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
-      throw new CompanyResearchError(
-        `Failed to parse AI response: ${errorMessage}`,
-        "PARSE_ERROR",
-        parseError
-      );
-    }
-
-    // Type-check and transform the response
-    const rawResult = parsed as {
+    // Parse JSON response using shared utility with state-machine repair
+    let rawResult: {
       companyName?: string;
       industry?: string;
       summary?: string;
@@ -456,6 +319,17 @@ export async function researchCompany(
       }>;
       keyTakeaways?: string[];
     };
+
+    try {
+      rawResult = parseAIJsonResponse<typeof rawResult>(textContent.text, "Company");
+    } catch (parseError) {
+      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
+      throw new CompanyResearchError(
+        `Failed to parse AI response: ${errorMessage}`,
+        "PARSE_ERROR",
+        parseError
+      );
+    }
 
     // Transform culture dimensions
     const cultureDimensions: CultureDimension[] = (rawResult.cultureDimensions || []).map((d) => ({

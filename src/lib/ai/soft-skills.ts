@@ -4,6 +4,7 @@ import {
   isAIConfigured,
   getModelConfig,
 } from "./config";
+import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
 import type { SurveyMessage, ChatResponse } from "@/lib/validations/soft-skills";
 
 /**
@@ -58,7 +59,7 @@ For each turn, respond with a JSON object:
 {
   "message": "Your question or response to them",
   "isComplete": false,
-  "questionNumber": 1-4,
+  "questionNumber": 2,
   "evidenceScore": null,
   "statement": null
 }
@@ -68,9 +69,12 @@ For each turn, respond with a JSON object:
   "message": "Your final encouraging message summarizing what you learned",
   "isComplete": true,
   "questionNumber": 5,
-  "evidenceScore": 1-5,
-  "statement": "A powerful, resume-ready statement that captures their skill (e.g., 'Demonstrated strong leadership by guiding cross-functional teams through complex projects, resulting in 30% improved delivery times')"
+  "evidenceScore": 4,
+  "statement": "Demonstrated strong leadership by guiding cross-functional teams through complex projects, resulting in 30% improved delivery times"
 }
+
+IMPORTANT: evidenceScore must be a number 1-5 when isComplete is true.
+questionNumber must be a number 1-5.
 
 ## Important Notes
 - Be warm, encouraging, and professional
@@ -78,7 +82,7 @@ For each turn, respond with a JSON object:
 - Acknowledge their responses before asking follow-ups
 - The statement should be in third person, action-oriented, and specific
 - If they provide weak examples, still assess fairly but at a lower score
-- Always provide actionable feedback in your final message`;
+- Always provide actionable feedback in your final message` + JSON_OUTPUT_INSTRUCTIONS;
 
 /**
  * Build the user prompt for starting a new assessment
@@ -156,138 +160,21 @@ function createClient(): Anthropic {
 }
 
 /**
- * Extract JSON from AI response - handles various formats Claude might return
- */
-function extractJsonFromResponse(text: string): string {
-  // Clean the text first - remove any BOM or control characters
-  const cleanText = text.replace(/^\uFEFF/, "").trim();
-
-  // Strategy 1: Try to extract JSON from markdown code block (end-anchored)
-  const jsonBlockMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)```\s*$/);
-  if (jsonBlockMatch) {
-    const extracted = jsonBlockMatch[1].trim();
-    if (extracted.startsWith("{") && extracted.endsWith("}")) {
-      return extracted;
-    }
-  }
-
-  // Strategy 2: Try non-anchored match for code block
-  const jsonBlockMatch2 = cleanText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (jsonBlockMatch2) {
-    const extracted = jsonBlockMatch2[1].trim();
-    if (extracted.startsWith("{") && extracted.endsWith("}")) {
-      return extracted;
-    }
-  }
-
-  // Strategy 3: Find JSON object with balanced brace matching
-  const startIndex = cleanText.indexOf("{");
-  if (startIndex !== -1) {
-    let braceCount = 0;
-    let endIndex = -1;
-    let inString = false;
-    let escapeNext = false;
-
-    for (let i = startIndex; i < cleanText.length; i++) {
-      const char = cleanText[i];
-
-      if (escapeNext) {
-        escapeNext = false;
-        continue;
-      }
-
-      if (char === "\\") {
-        escapeNext = true;
-        continue;
-      }
-
-      if (char === '"' && !escapeNext) {
-        inString = !inString;
-        continue;
-      }
-
-      if (!inString) {
-        if (char === "{") braceCount++;
-        if (char === "}") braceCount--;
-        if (braceCount === 0) {
-          endIndex = i;
-          break;
-        }
-      }
-    }
-
-    if (endIndex !== -1) {
-      return cleanText.substring(startIndex, endIndex + 1);
-    }
-  }
-
-  // Strategy 4: Last resort - try to find any valid JSON structure
-  const lastBrace = cleanText.lastIndexOf("}");
-  const firstBrace = cleanText.indexOf("{");
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return cleanText.substring(firstBrace, lastBrace + 1);
-  }
-
-  return cleanText;
-}
-
-/**
- * Attempt to repair common JSON issues
- */
-function repairJson(jsonStr: string): string {
-  let repaired = jsonStr;
-
-  // Fix single quotes to double quotes for property names and string values
-  repaired = repaired.replace(/'/g, '"');
-
-  // Fix unquoted property names (e.g., {key: "value"} -> {"key": "value"})
-  // Use multiple passes to catch nested objects
-  for (let i = 0; i < 3; i++) {
-    repaired = repaired.replace(/([{,][\s\n\r]*)([a-zA-Z_][a-zA-Z0-9_]*)([\s\n\r]*:)/gm, '$1"$2"$3');
-  }
-
-  // Remove trailing commas before ] or }
-  repaired = repaired.replace(/,[\s\n\r]*]/g, "]");
-  repaired = repaired.replace(/,[\s\n\r]*}/g, "}");
-
-  // Fix unescaped newlines in strings
-  repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (_match, p1, p2) => {
-    return `"${p1}\\n${p2}"`;
-  });
-
-  // Try to close unclosed brackets/braces if truncated
-  const openBraces = (repaired.match(/{/g) || []).length;
-  const closeBraces = (repaired.match(/}/g) || []).length;
-  const openBrackets = (repaired.match(/\[/g) || []).length;
-  const closeBrackets = (repaired.match(/]/g) || []).length;
-
-  for (let i = 0; i < openBrackets - closeBrackets; i++) {
-    repaired += "]";
-  }
-  for (let i = 0; i < openBraces - closeBraces; i++) {
-    repaired += "}";
-  }
-
-  return repaired;
-}
-
-/**
  * Parse and validate the chat response from AI
  */
 function parseChatResponse(text: string): ChatResponse {
-  const rawJsonStr = extractJsonFromResponse(text);
-  const jsonStr = repairJson(rawJsonStr);
+  type RawResponse = {
+    message?: string;
+    isComplete?: boolean;
+    questionNumber?: number;
+    evidenceScore?: number | null;
+    statement?: string | null;
+  };
 
-  console.log("[SoftSkills] Repaired JSON (first 200 chars):", jsonStr.substring(0, 200));
-
-  let parsed: unknown;
+  let raw: RawResponse;
   try {
-    parsed = JSON.parse(jsonStr);
+    raw = parseAIJsonResponse<RawResponse>(text, "SoftSkills");
   } catch (parseError) {
-    console.error("[SoftSkills] JSON parse error:", parseError);
-    console.error("[SoftSkills] Raw JSON (first 500 chars):", rawJsonStr.substring(0, 500));
-    console.error("[SoftSkills] Repaired JSON (first 500 chars):", jsonStr.substring(0, 500));
-
     const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
     throw new SoftSkillsError(
       `Failed to parse AI response: ${errorMessage}`,
@@ -295,14 +182,6 @@ function parseChatResponse(text: string): ChatResponse {
       parseError
     );
   }
-
-  const raw = parsed as {
-    message?: string;
-    isComplete?: boolean;
-    questionNumber?: number;
-    evidenceScore?: number | null;
-    statement?: string | null;
-  };
 
   // Validate required fields
   if (!raw.message || typeof raw.message !== "string") {

@@ -6,6 +6,7 @@ import {
   getModelConfig,
 } from "./config";
 import { formatResumeForPrompt } from "./prompts";
+import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
 import type { ResumeContent } from "@/lib/validations/resume";
 import type { ImpactResult, ImpactBullet, ImpactLevel } from "@/lib/validations/impact";
 import { getImpactScoreLabel } from "@/lib/validations/impact";
@@ -67,7 +68,7 @@ Calculate an impact quantification score from 0-100:
 
 Return a JSON object with this structure:
 {
-  "score": number (0-100),
+  "score": 75,
   "summary": "2-3 sentence summary of the overall quantification level",
   "bullets": [
     {
@@ -77,16 +78,16 @@ Return a JSON object with this structure:
       "original": "original bullet text",
       "improved": "improved bullet with metrics",
       "metrics": ["metric1", "metric2"],
-      "improvement": "none" | "minor" | "major" | "transformed",
+      "improvement": "major",
       "explanation": "Why this improvement was made"
     }
   ],
   "metricCategories": {
-    "percentage": count of % metrics,
-    "monetary": count of $ metrics,
-    "time": count of time metrics,
-    "scale": count of scale/volume metrics,
-    "other": count of other metrics
+    "percentage": 2,
+    "monetary": 1,
+    "time": 3,
+    "scale": 2,
+    "other": 0
   },
   "suggestions": [
     {
@@ -96,7 +97,10 @@ Return a JSON object with this structure:
   ]
 }
 
-Be specific and actionable. If a bullet is already well-quantified, mark improvement as "none" and keep the original. Do not fabricate information not present or inferable from the resume.`;
+IMPORTANT: Valid values for "improvement": "none", "minor", "major", "transformed"
+Score must be a number between 0 and 100.
+
+Be specific and actionable. If a bullet is already well-quantified, mark improvement as "none" and keep the original. Do not fabricate information not present or inferable from the resume.` + JSON_OUTPUT_INSTRUCTIONS;
 
 /**
  * Build the user prompt for impact analysis
@@ -163,124 +167,6 @@ function createClient(): Anthropic {
 }
 
 /**
- * Extract JSON from AI response - handles various formats Claude might return
- */
-function extractJsonFromResponse(text: string): string {
-  // Clean the text first - remove any BOM or control characters
-  const cleanText = text.replace(/^\uFEFF/, "").trim();
-
-  // Strategy 1: Try to extract JSON from markdown code block (end-anchored)
-  const jsonBlockMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)```\s*$/);
-  if (jsonBlockMatch) {
-    const extracted = jsonBlockMatch[1].trim();
-    if (extracted.startsWith("{") && extracted.endsWith("}")) {
-      return extracted;
-    }
-  }
-
-  // Strategy 2: Try non-anchored match for code block
-  const jsonBlockMatch2 = cleanText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (jsonBlockMatch2) {
-    const extracted = jsonBlockMatch2[1].trim();
-    if (extracted.startsWith("{") && extracted.endsWith("}")) {
-      return extracted;
-    }
-  }
-
-  // Strategy 3: Find JSON object with balanced brace matching
-  const startIndex = cleanText.indexOf("{");
-  if (startIndex !== -1) {
-    let braceCount = 0;
-    let endIndex = -1;
-    let inString = false;
-    let escapeNext = false;
-
-    for (let i = startIndex; i < cleanText.length; i++) {
-      const char = cleanText[i];
-
-      if (escapeNext) {
-        escapeNext = false;
-        continue;
-      }
-
-      if (char === "\\") {
-        escapeNext = true;
-        continue;
-      }
-
-      if (char === '"' && !escapeNext) {
-        inString = !inString;
-        continue;
-      }
-
-      if (!inString) {
-        if (char === "{") braceCount++;
-        if (char === "}") braceCount--;
-        if (braceCount === 0) {
-          endIndex = i;
-          break;
-        }
-      }
-    }
-
-    if (endIndex !== -1) {
-      return cleanText.substring(startIndex, endIndex + 1);
-    }
-  }
-
-  // Strategy 4: Last resort - try to find any valid JSON structure
-  const lastBrace = cleanText.lastIndexOf("}");
-  const firstBrace = cleanText.indexOf("{");
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return cleanText.substring(firstBrace, lastBrace + 1);
-  }
-
-  return cleanText;
-}
-
-/**
- * Attempt to repair common JSON issues
- */
-function repairJson(jsonStr: string): string {
-  let repaired = jsonStr;
-
-  // Fix single quotes to double quotes for property names and string values
-  // This handles cases like {'key': 'value'} -> {"key": "value"}
-  repaired = repaired.replace(/'/g, '"');
-
-  // Fix unquoted property names (e.g., {key: "value"} -> {"key": "value"})
-  // Use multiple passes to catch nested objects
-  // Pattern matches: { or , followed by whitespace/newlines, then unquoted identifier, then :
-  for (let i = 0; i < 3; i++) {
-    repaired = repaired.replace(/([{,][\s\n\r]*)([a-zA-Z_][a-zA-Z0-9_]*)([\s\n\r]*:)/gm, '$1"$2"$3');
-  }
-
-  // Remove trailing commas before ] or }
-  repaired = repaired.replace(/,[\s\n\r]*]/g, "]");
-  repaired = repaired.replace(/,[\s\n\r]*}/g, "}");
-
-  // Fix unescaped newlines in strings
-  repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (_match, p1, p2) => {
-    return `"${p1}\\n${p2}"`;
-  });
-
-  // Try to close unclosed brackets/braces if truncated
-  const openBraces = (repaired.match(/{/g) || []).length;
-  const closeBraces = (repaired.match(/}/g) || []).length;
-  const openBrackets = (repaired.match(/\[/g) || []).length;
-  const closeBrackets = (repaired.match(/]/g) || []).length;
-
-  for (let i = 0; i < openBrackets - closeBrackets; i++) {
-    repaired += "]";
-  }
-  for (let i = 0; i < openBraces - closeBraces; i++) {
-    repaired += "}";
-  }
-
-  return repaired;
-}
-
-/**
  * Analyze a resume for impact quantification opportunities
  */
 export async function analyzeImpact(
@@ -335,32 +221,8 @@ export async function analyzeImpact(
       );
     }
 
-    // Parse JSON response - always apply repair first for robustness
-    const rawJsonStr = extractJsonFromResponse(textContent.text);
-    const jsonStr = repairJson(rawJsonStr);
-
-    console.log("[Impact] Extracted JSON length:", rawJsonStr.length);
-    console.log("[Impact] Repaired JSON (first 200 chars):", jsonStr.substring(0, 200));
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch (parseError) {
-      // Log detailed error information for debugging
-      console.error("[Impact] JSON parse error:", parseError);
-      console.error("[Impact] Raw JSON (first 500 chars):", rawJsonStr.substring(0, 500));
-      console.error("[Impact] Repaired JSON (first 500 chars):", jsonStr.substring(0, 500));
-
-      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
-      throw new ImpactError(
-        `Failed to parse AI response: ${errorMessage}`,
-        "PARSE_ERROR",
-        parseError
-      );
-    }
-
-    // Type-check and transform the response
-    const rawResult = parsed as {
+    // Parse JSON response using shared utility with state-machine repair
+    let rawResult: {
       score?: number;
       summary?: string;
       bullets?: Array<{
@@ -385,6 +247,17 @@ export async function analyzeImpact(
         recommendation?: string;
       }>;
     };
+
+    try {
+      rawResult = parseAIJsonResponse<typeof rawResult>(textContent.text, "Impact");
+    } catch (parseError) {
+      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
+      throw new ImpactError(
+        `Failed to parse AI response: ${errorMessage}`,
+        "PARSE_ERROR",
+        parseError
+      );
+    }
 
     // Validate and transform bullets
     const bullets: ImpactBullet[] = (rawResult.bullets || []).map((b, index) => ({
