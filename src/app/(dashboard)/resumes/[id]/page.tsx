@@ -23,7 +23,11 @@ import {
   Star,
   FileText,
   Wand2,
+  Download,
+  Loader2,
 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import type { ResumeResponse, ResumeContent } from "@/lib/validations/resume";
 
@@ -71,6 +75,7 @@ export default function ResumeDetailPage() {
   const params = useParams();
   const router = useRouter();
   const resumeId = params.id as string;
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["resumes", resumeId],
@@ -80,6 +85,41 @@ export default function ResumeDetailPage() {
 
   const resume = data?.data;
   const content = resume?.content as ResumeContent | null;
+
+  // Download PDF handler
+  const handleDownloadPdf = async () => {
+    if (!resumeId || !content?.contact) {
+      toast.error("Resume content is required to generate PDF");
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch(`/api/resumes/${resumeId}/pdf`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || "Failed to generate PDF");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${content.contact.name || "resume"}-resume.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("PDF downloaded successfully");
+    } catch (error) {
+      console.error("PDF download error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to download PDF");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const formatDate = (dateValue: string | number | Date | null | undefined) => {
     if (!dateValue) return null;
@@ -163,6 +203,18 @@ export default function ResumeDetailPage() {
           </div>
           {!isLoading && (
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleDownloadPdf}
+                disabled={isDownloading || !content?.contact}
+              >
+                {isDownloading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Download PDF
+              </Button>
               <Button variant="outline" asChild>
                 <Link href={`/resumes/${resumeId}/tailor`}>
                   <Wand2 className="mr-2 h-4 w-4" />
