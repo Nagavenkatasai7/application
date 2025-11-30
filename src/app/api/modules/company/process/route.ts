@@ -3,10 +3,8 @@ import { db, companies } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { researchCompany, CompanyResearchError } from "@/lib/ai/company";
 
-// Use serverless runtime with max duration
-// On Hobby plan this is 10s, but this endpoint is called fire-and-forget
-// so it can complete in the background even if the original request times out
-export const maxDuration = 60;
+// Use serverless runtime with max duration - match AI timeout
+export const maxDuration = 180;
 
 /**
  * POST /api/modules/company/process - Background company research processor

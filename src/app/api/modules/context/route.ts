@@ -7,8 +7,8 @@ import type { JobData } from "@/lib/ai/context";
 import { contextRequestSchema } from "@/lib/validations/context";
 import type { ResumeContent } from "@/lib/validations/resume";
 
-// Vercel function configuration
-export const maxDuration = 60;
+// Vercel function configuration - match AI timeout
+export const maxDuration = 180;
 
 /**
  * POST /api/modules/context - Analyze resume alignment with a job description

@@ -6,8 +6,8 @@ import { analyzeImpact, ImpactError } from "@/lib/ai/impact";
 import { impactRequestSchema } from "@/lib/validations/impact";
 import type { ResumeContent } from "@/lib/validations/resume";
 
-// Vercel function configuration
-export const maxDuration = 60;
+// Vercel function configuration - match AI timeout
+export const maxDuration = 180;
 
 /**
  * POST /api/modules/impact - Analyze resume bullets for quantification opportunities

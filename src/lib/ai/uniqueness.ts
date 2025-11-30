@@ -133,21 +133,44 @@ function createClient(): Anthropic {
 }
 
 /**
- * Extract JSON from AI response
+ * Extract JSON from AI response - handles various formats Claude might return
  */
 function extractJsonFromResponse(text: string): string {
-  // Try to extract JSON from markdown code block
+  // Log the raw response for debugging
+  console.log("[Uniqueness] Raw AI response length:", text.length);
+  console.log("[Uniqueness] Raw AI response preview:", text.substring(0, 500));
+
+  // Try to extract JSON from markdown code block (most common format)
   const jsonBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (jsonBlockMatch) {
+    console.log("[Uniqueness] Found JSON in code block");
     return jsonBlockMatch[1].trim();
   }
 
-  // Try to find raw JSON object
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    return jsonMatch[0];
+  // Try to find a JSON object starting with { and ending with }
+  // Use a more precise regex that finds the outermost balanced braces
+  const startIndex = text.indexOf("{");
+  if (startIndex !== -1) {
+    let braceCount = 0;
+    let endIndex = -1;
+
+    for (let i = startIndex; i < text.length; i++) {
+      if (text[i] === "{") braceCount++;
+      if (text[i] === "}") braceCount--;
+      if (braceCount === 0) {
+        endIndex = i;
+        break;
+      }
+    }
+
+    if (endIndex !== -1) {
+      const jsonStr = text.substring(startIndex, endIndex + 1);
+      console.log("[Uniqueness] Found JSON object, length:", jsonStr.length);
+      return jsonStr;
+    }
   }
 
+  console.log("[Uniqueness] No JSON found, returning raw text");
   return text.trim();
 }
 
