@@ -10,6 +10,7 @@ import {
   StaggerItem,
 } from "@/components/layout/page-transition";
 import { JobCard } from "@/components/jobs/job-card";
+import { LinkedInSearchSheet } from "@/components/jobs/linkedin-search-sheet";
 import { Plus, Briefcase } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -128,12 +129,15 @@ export default function JobsPage() {
               Manage your saved job postings
             </p>
           </div>
-          <Button asChild>
-            <Link href="/jobs/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Job
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <LinkedInSearchSheet />
+            <Button asChild>
+              <Link href="/jobs/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Job
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Loading State */}

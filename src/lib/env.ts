@@ -57,6 +57,12 @@ const envSchema = z.object({
   ENABLE_AI_BULLET_OPTIMIZATION: z.string().default("true").transform(v => v === "true"),
   ENABLE_AI_JOB_MATCH: z.string().default("true").transform(v => v === "true"),
 
+  // LinkedIn Job Scraping (Apify)
+  APIFY_API_KEY: z
+    .string()
+    .optional()
+    .describe("Apify API key for LinkedIn job scraping"),
+
   // Application
   NODE_ENV: z
     .enum(["development", "production", "test"])
@@ -124,6 +130,25 @@ export function isAIConfigured(): boolean {
     (env.AI_PROVIDER === "anthropic" && !!env.ANTHROPIC_API_KEY) ||
     (env.AI_PROVIDER === "openai" && !!env.OPENAI_API_KEY)
   );
+}
+
+/**
+ * Check if Apify (LinkedIn job scraping) is configured
+ */
+export function isApifyConfigured(): boolean {
+  const env = getEnv();
+  return !!env.APIFY_API_KEY;
+}
+
+/**
+ * Get Apify API key (throws if not configured)
+ */
+export function getApifyApiKey(): string {
+  const env = getEnv();
+  if (!env.APIFY_API_KEY) {
+    throw new Error("APIFY_API_KEY is not configured");
+  }
+  return env.APIFY_API_KEY;
 }
 
 /**
