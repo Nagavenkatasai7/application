@@ -6,7 +6,7 @@ import {
 } from "./config";
 import { formatResumeForPrompt } from "./prompts";
 import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
-import { withRetry } from "./retry";
+import { withRetry, hasRetryMetadata } from "./retry";
 import type { ResumeContent } from "@/lib/validations/resume";
 import type { ContextResult, MatchedSkill, MissingRequirement, ExperienceAlignment } from "@/lib/validations/context";
 import { getContextScoreLabel } from "@/lib/validations/context";
@@ -467,6 +467,16 @@ export async function analyzeContext(
     // Re-throw ContextError as-is
     if (error instanceof ContextError) {
       throw error;
+    }
+
+    // Check for retry-exhausted errors
+    if (hasRetryMetadata(error)) {
+      const metadata = (error as { retryMetadata: { attempts: number; exhaustedRetries: boolean; errorCode: string } }).retryMetadata;
+      throw new ContextError(
+        `AI request failed after ${metadata.attempts} attempt(s)`,
+        metadata.exhaustedRetries ? "MAX_RETRIES_EXCEEDED" : metadata.errorCode,
+        error
+      );
     }
 
     // Handle Anthropic API errors

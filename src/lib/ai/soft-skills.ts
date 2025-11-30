@@ -5,7 +5,7 @@ import {
   getModelConfig,
 } from "./config";
 import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
-import { withRetry } from "./retry";
+import { withRetry, hasRetryMetadata } from "./retry";
 import type { SurveyMessage, ChatResponse } from "@/lib/validations/soft-skills";
 
 /**
@@ -259,6 +259,16 @@ export async function startAssessment(skillName: string): Promise<ChatResponse> 
       throw error;
     }
 
+    // Check for retry-exhausted errors
+    if (hasRetryMetadata(error)) {
+      const metadata = (error as { retryMetadata: { attempts: number; exhaustedRetries: boolean; errorCode: string } }).retryMetadata;
+      throw new SoftSkillsError(
+        `AI request failed after ${metadata.attempts} attempt(s)`,
+        metadata.exhaustedRetries ? "MAX_RETRIES_EXCEEDED" : metadata.errorCode,
+        error
+      );
+    }
+
     // Handle Anthropic API errors
     if (error instanceof Anthropic.APIError) {
       if (error.status === 401) {
@@ -379,6 +389,16 @@ export async function continueAssessment(
     // Re-throw SoftSkillsError as-is
     if (error instanceof SoftSkillsError) {
       throw error;
+    }
+
+    // Check for retry-exhausted errors
+    if (hasRetryMetadata(error)) {
+      const metadata = (error as { retryMetadata: { attempts: number; exhaustedRetries: boolean; errorCode: string } }).retryMetadata;
+      throw new SoftSkillsError(
+        `AI request failed after ${metadata.attempts} attempt(s)`,
+        metadata.exhaustedRetries ? "MAX_RETRIES_EXCEEDED" : metadata.errorCode,
+        error
+      );
     }
 
     // Handle Anthropic API errors

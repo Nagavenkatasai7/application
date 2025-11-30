@@ -7,7 +7,7 @@ import {
 } from "./config";
 import { formatResumeForPrompt } from "./prompts";
 import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
-import { withRetry } from "./retry";
+import { withRetry, hasRetryMetadata } from "./retry";
 import type { ResumeContent } from "@/lib/validations/resume";
 import type { UniquenessResult, UniquenessFactor } from "@/lib/validations/uniqueness";
 import { getScoreLabel } from "@/lib/validations/uniqueness";
@@ -249,6 +249,16 @@ export async function analyzeUniqueness(
     // Re-throw UniquenessError as-is
     if (error instanceof UniquenessError) {
       throw error;
+    }
+
+    // Check for retry-exhausted errors
+    if (hasRetryMetadata(error)) {
+      const metadata = (error as { retryMetadata: { attempts: number; exhaustedRetries: boolean; errorCode: string } }).retryMetadata;
+      throw new UniquenessError(
+        `AI request failed after ${metadata.attempts} attempt(s)`,
+        metadata.exhaustedRetries ? "MAX_RETRIES_EXCEEDED" : metadata.errorCode,
+        error
+      );
     }
 
     // Handle Anthropic API errors

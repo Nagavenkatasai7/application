@@ -10,7 +10,7 @@ import {
 } from "./prompts";
 import type { ResumeContent } from "@/lib/validations/resume";
 import { resumeContentSchema } from "@/lib/validations/resume";
-import { withRetry } from "./retry";
+import { withRetry, hasRetryMetadata } from "./retry";
 
 /**
  * Error thrown when resume parsing fails
@@ -173,6 +173,16 @@ export async function parseResumeText(
   } catch (error) {
     if (error instanceof ResumeParseError) {
       throw error;
+    }
+
+    // Check for retry-exhausted errors
+    if (hasRetryMetadata(error)) {
+      const metadata = (error as { retryMetadata: { attempts: number; exhaustedRetries: boolean; errorCode: string } }).retryMetadata;
+      throw new ResumeParseError(
+        `AI request failed after ${metadata.attempts} attempt(s)`,
+        metadata.exhaustedRetries ? "MAX_RETRIES_EXCEEDED" : metadata.errorCode,
+        error
+      );
     }
 
     if (error instanceof Anthropic.APIError) {

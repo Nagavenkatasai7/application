@@ -5,7 +5,7 @@ import {
   getModelConfig,
 } from "./config";
 import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
-import { withRetry } from "./retry";
+import { withRetry, hasRetryMetadata } from "./retry";
 import type {
   CompanyResearchResult,
   CultureDimension,
@@ -408,6 +408,16 @@ export async function researchCompany(
     // Re-throw CompanyResearchError as-is
     if (error instanceof CompanyResearchError) {
       throw error;
+    }
+
+    // Check for retry-exhausted errors
+    if (hasRetryMetadata(error)) {
+      const metadata = (error as { retryMetadata: { attempts: number; exhaustedRetries: boolean; errorCode: string } }).retryMetadata;
+      throw new CompanyResearchError(
+        `AI request failed after ${metadata.attempts} attempt(s)`,
+        metadata.exhaustedRetries ? "MAX_RETRIES_EXCEEDED" : metadata.errorCode,
+        error
+      );
     }
 
     // Handle Anthropic API errors

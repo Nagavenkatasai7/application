@@ -12,7 +12,7 @@ import {
 } from "./prompts";
 import type { ResumeContent } from "@/lib/validations/resume";
 import { resumeContentSchema } from "@/lib/validations/resume";
-import { withRetry } from "./retry";
+import { withRetry, hasRetryMetadata } from "./retry";
 
 /**
  * Tailoring request input
@@ -228,6 +228,16 @@ export async function tailorResume(
     // Re-throw TailorError as-is
     if (error instanceof TailorError) {
       throw error;
+    }
+
+    // Check for retry-exhausted errors
+    if (hasRetryMetadata(error)) {
+      const metadata = (error as { retryMetadata: { attempts: number; exhaustedRetries: boolean; errorCode: string } }).retryMetadata;
+      throw new TailorError(
+        `AI request failed after ${metadata.attempts} attempt(s)`,
+        metadata.exhaustedRetries ? "MAX_RETRIES_EXCEEDED" : metadata.errorCode,
+        error
+      );
     }
 
     // Handle Anthropic API errors
