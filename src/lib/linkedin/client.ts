@@ -95,35 +95,40 @@ async function startActorRun(
 
 /**
  * Build actor input from search params
+ *
+ * Based on bebity/linkedin-jobs-scraper actor input schema:
+ * - title: Job title search term
+ * - location: Location filter
+ * - publishedAt: Time filter (empty string or date range)
+ * - rows: Number of results to return
+ * - proxy: Proxy configuration with RESIDENTIAL group
  */
 function buildActorInput(params: LinkedInSearchParams): Record<string, unknown> {
   const { keywords, location, timeFrame, limit = 25 } = params;
 
-  // Map our timeFrame to Apify's expected format
-  // The actor typically accepts a 'publishedAt' or similar filter
+  // Map our timeFrame to LinkedIn's datePosted filter format
+  // LinkedIn uses: past-24h, past-week, past-month, any-time
   const timeFilterMap: Record<string, string> = {
-    "1h": "past hour",
-    "24h": "past 24 hours",
-    "3d": "past 3 days",
-    "1w": "past week",
-    "1m": "past month",
+    "1h": "past-24h",      // LinkedIn doesn't have 1h, use 24h
+    "24h": "past-24h",
+    "3d": "past-week",     // LinkedIn doesn't have 3d, use past-week
+    "1w": "past-week",
+    "1m": "past-month",
   };
 
   return {
-    // Search query configuration
-    searchQueries: [
-      {
-        keyword: keywords,
-        location: location || "",
-      },
-    ],
-    // Time filter
-    publishedAt: timeFilterMap[timeFrame] || "past 24 hours",
-    // Limit results
-    maxItems: Math.min(limit, 50),
-    // Use Apify proxy for reliability
+    // Job title search term
+    title: keywords,
+    // Location filter
+    location: location || "",
+    // Time filter - LinkedIn datePosted format
+    publishedAt: timeFilterMap[timeFrame] || "past-24h",
+    // Number of results
+    rows: Math.min(limit, 50),
+    // Proxy configuration - RESIDENTIAL for better reliability
     proxy: {
       useApifyProxy: true,
+      apifyProxyGroups: ["RESIDENTIAL"],
     },
   };
 }

@@ -90,7 +90,7 @@ jobs:
           # Delete existing env vars to recreate them
           echo "Removing existing env vars..."
           ENVS=$(curl -s "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
-            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]? | select(.key == "ANTHROPIC_API_KEY" or .key == "AI_PROVIDER" or .key == "AI_TIMEOUT" or .key == "POSTGRES_URL") | .id')
+            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]? | select(.key == "ANTHROPIC_API_KEY" or .key == "AI_PROVIDER" or .key == "AI_TIMEOUT" or .key == "POSTGRES_URL" or .key == "APIFY_API_KEY") | .id')
 
           for ID in $ENVS; do
             curl -s -X DELETE "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env/$ID?teamId=$VERCEL_ORG_ID" \
@@ -126,6 +126,13 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"key\":\"POSTGRES_URL\",\"value\":\"${{ secrets.POSTGRES_URL }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}"
 
+          # Add APIFY_API_KEY (LinkedIn job scraping)
+          echo "Adding APIFY_API_KEY..."
+          curl -s -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"key\":\"APIFY_API_KEY\",\"value\":\"${{ secrets.APIFY_API_KEY }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}"
+
           # Verify
           echo "Environment variables configured:"
           vercel env ls --token=$VERCEL_TOKEN || true
@@ -138,6 +145,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AI_PROVIDER: anthropic
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          APIFY_API_KEY: ${{ secrets.APIFY_API_KEY }}
         run: vercel build ${{ (github.event_name == 'push' || github.event.inputs.environment == 'production') && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy to Vercel
