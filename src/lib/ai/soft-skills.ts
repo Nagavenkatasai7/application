@@ -5,6 +5,7 @@ import {
   getModelConfig,
 } from "./config";
 import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
+import { withRetry } from "./retry";
 import type { SurveyMessage, ChatResponse } from "@/lib/validations/soft-skills";
 
 /**
@@ -227,18 +228,20 @@ export async function startAssessment(skillName: string): Promise<ChatResponse> 
   try {
     const client = createClient();
 
-    const response = await client.messages.create({
-      model: modelConfig.model,
-      max_tokens: 1000,
-      temperature: 0.7, // Slightly higher for natural conversation
-      system: SOFT_SKILLS_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-    });
+    const response = await withRetry(() =>
+      client.messages.create({
+        model: modelConfig.model,
+        max_tokens: 1000,
+        temperature: 0.7, // Slightly higher for natural conversation
+        system: SOFT_SKILLS_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt,
+          },
+        ],
+      })
+    );
 
     // Extract text content
     const textContent = response.content.find((c) => c.type === "text");
@@ -352,13 +355,15 @@ export async function continueAssessment(
   try {
     const client = createClient();
 
-    const response = await client.messages.create({
-      model: modelConfig.model,
-      max_tokens: 1000,
-      temperature: 0.7,
-      system: SOFT_SKILLS_SYSTEM_PROMPT,
-      messages: apiMessages,
-    });
+    const response = await withRetry(() =>
+      client.messages.create({
+        model: modelConfig.model,
+        max_tokens: 1000,
+        temperature: 0.7,
+        system: SOFT_SKILLS_SYSTEM_PROMPT,
+        messages: apiMessages,
+      })
+    );
 
     // Extract text content
     const textContent = response.content.find((c) => c.type === "text");

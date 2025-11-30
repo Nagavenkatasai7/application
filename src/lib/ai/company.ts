@@ -5,6 +5,7 @@ import {
   getModelConfig,
 } from "./config";
 import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
+import { withRetry } from "./retry";
 import type {
   CompanyResearchResult,
   CultureDimension,
@@ -246,18 +247,20 @@ export async function researchCompany(
   try {
     const client = createClient();
 
-    const response = await client.messages.create({
-      model: modelConfig.model,
-      max_tokens: 4000,
-      temperature: 0.5, // Balanced for creativity and consistency
-      system: COMPANY_RESEARCH_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-    });
+    const response = await withRetry(() =>
+      client.messages.create({
+        model: modelConfig.model,
+        max_tokens: 4000,
+        temperature: 0.5, // Balanced for creativity and consistency
+        system: COMPANY_RESEARCH_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt,
+          },
+        ],
+      })
+    );
 
     // Extract text content
     const textContent = response.content.find((c) => c.type === "text");

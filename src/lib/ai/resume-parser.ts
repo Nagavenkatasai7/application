@@ -10,6 +10,7 @@ import {
 } from "./prompts";
 import type { ResumeContent } from "@/lib/validations/resume";
 import { resumeContentSchema } from "@/lib/validations/resume";
+import { withRetry } from "./retry";
 
 /**
  * Error thrown when resume parsing fails
@@ -85,18 +86,20 @@ export async function parseResumeText(
   try {
     const client = createClient();
 
-    const response = await client.messages.create({
-      model: modelConfig.model,
-      max_tokens: 4000,
-      temperature: 0.1, // Low temperature for consistent parsing
-      system: RESUME_PARSING_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-    });
+    const response = await withRetry(() =>
+      client.messages.create({
+        model: modelConfig.model,
+        max_tokens: 4000,
+        temperature: 0.1, // Low temperature for consistent parsing
+        system: RESUME_PARSING_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt,
+          },
+        ],
+      })
+    );
 
     // Extract text content
     const textContent = response.content.find((c) => c.type === "text");

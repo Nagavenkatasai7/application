@@ -7,6 +7,7 @@ import {
 } from "./config";
 import { formatResumeForPrompt } from "./prompts";
 import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
+import { withRetry } from "./retry";
 import type { ResumeContent } from "@/lib/validations/resume";
 import type { UniquenessResult, UniquenessFactor } from "@/lib/validations/uniqueness";
 import { getScoreLabel } from "@/lib/validations/uniqueness";
@@ -164,18 +165,20 @@ export async function analyzeUniqueness(
   try {
     const client = createClient();
 
-    const response = await client.messages.create({
-      model: modelConfig.model,
-      max_tokens: 4000, // Increased for complex resumes
-      temperature: 0.4, // Lower temperature for consistent analysis
-      system: UNIQUENESS_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-    });
+    const response = await withRetry(() =>
+      client.messages.create({
+        model: modelConfig.model,
+        max_tokens: 4000, // Increased for complex resumes
+        temperature: 0.4, // Lower temperature for consistent analysis
+        system: UNIQUENESS_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt,
+          },
+        ],
+      })
+    );
 
     // Extract text content
     const textContent = response.content.find((c) => c.type === "text");

@@ -6,6 +6,7 @@ import {
 } from "./config";
 import { formatResumeForPrompt } from "./prompts";
 import { parseAIJsonResponse, JSON_OUTPUT_INSTRUCTIONS } from "./json-utils";
+import { withRetry } from "./retry";
 import type { ResumeContent } from "@/lib/validations/resume";
 import type { ContextResult, MatchedSkill, MissingRequirement, ExperienceAlignment } from "@/lib/validations/context";
 import { getContextScoreLabel } from "@/lib/validations/context";
@@ -316,18 +317,20 @@ export async function analyzeContext(
   try {
     const client = createClient();
 
-    const response = await client.messages.create({
-      model: modelConfig.model,
-      max_tokens: 4000,
-      temperature: 0.3, // Lower temperature for consistent analysis
-      system: CONTEXT_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-    });
+    const response = await withRetry(() =>
+      client.messages.create({
+        model: modelConfig.model,
+        max_tokens: 4000,
+        temperature: 0.3, // Lower temperature for consistent analysis
+        system: CONTEXT_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt,
+          },
+        ],
+      })
+    );
 
     // Extract text content
     const textContent = response.content.find((c) => c.type === "text");

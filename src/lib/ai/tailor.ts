@@ -12,6 +12,7 @@ import {
 } from "./prompts";
 import type { ResumeContent } from "@/lib/validations/resume";
 import { resumeContentSchema } from "@/lib/validations/resume";
+import { withRetry } from "./retry";
 
 /**
  * Tailoring request input
@@ -166,18 +167,20 @@ export async function tailorResume(
   try {
     const client = createAnthropicClient();
 
-    const response = await client.messages.create({
-      model: modelConfig.model,
-      max_tokens: modelConfig.maxTokens,
-      temperature: modelConfig.temperature,
-      system: RESUME_TAILORING_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-    });
+    const response = await withRetry(() =>
+      client.messages.create({
+        model: modelConfig.model,
+        max_tokens: modelConfig.maxTokens,
+        temperature: modelConfig.temperature,
+        system: RESUME_TAILORING_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt,
+          },
+        ],
+      })
+    );
 
     // Extract text content from response
     const textContent = response.content.find((c) => c.type === "text");
