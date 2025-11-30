@@ -9,17 +9,23 @@ import {
   ArrowLeft,
   Loader2,
   AlertCircle,
+  Sparkles,
+  Clock,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/layout/page-transition";
 import {
   JobSelector,
   ChangesSummary,
   ResumeComparison,
   TailorActions,
+  RecruiterReadinessCard,
 } from "@/components/resumes/tailor";
 import type { ResumeContent } from "@/lib/validations/resume";
+import type { RecruiterReadinessScore } from "@/lib/ai/tailoring/types";
 
 interface Resume {
   id: string;
@@ -33,14 +39,26 @@ interface Job {
   companyName: string | null;
 }
 
-interface TailorResult {
+interface HybridTailorResult {
   tailoredResume: ResumeContent;
+  qualityScore: RecruiterReadinessScore;
   changes: {
     summaryModified: boolean;
     experienceBulletsModified: number;
     skillsReordered: boolean;
     sectionsReordered: boolean;
   };
+  preAnalysis: {
+    impact: { score: number; scoreLabel: string; bulletsImproved: number };
+    uniqueness: { score: number; scoreLabel: string; differentiators: string[] };
+    context: { score: number; scoreLabel: string; keywordCoverage: number };
+    softSkillsDetected: number;
+    companyContextNeeded: boolean;
+  };
+  appliedRules: Array<{ ruleId: string; ruleName: string; recruiterIssue: string }>;
+  tokenUsage: { preAnalysis: number; rewriting: number; total: number; savedVsPureAI: number };
+  processingTimeMs: number;
+  tailoredAt: string;
 }
 
 interface APIResponse<T> {
@@ -57,7 +75,7 @@ export default function TailorPage({
   const { id: resumeId } = use(params);
   const router = useRouter();
   const [selectedJobId, setSelectedJobId] = useState<string>("");
-  const [tailorResult, setTailorResult] = useState<TailorResult | null>(null);
+  const [tailorResult, setTailorResult] = useState<HybridTailorResult | null>(null);
 
   // Fetch the resume
   const {
@@ -89,15 +107,15 @@ export default function TailorPage({
   const jobs = jobsData?.data || [];
   const selectedJob = jobs.find((j) => j.id === selectedJobId);
 
-  // Tailor mutation
+  // Hybrid Tailor mutation - uses the recruiter-optimized system
   const tailorMutation = useMutation({
     mutationFn: async ({ resumeId, jobId }: { resumeId: string; jobId: string }) => {
-      const res = await fetch(`/api/resumes/${resumeId}/tailor`, {
+      const res = await fetch(`/api/resumes/${resumeId}/hybrid-tailor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId }),
       });
-      const data: APIResponse<TailorResult> = await res.json();
+      const data: APIResponse<HybridTailorResult> = await res.json();
       if (!data.success) {
         throw new Error(data.error?.message || "Failed to tailor resume");
       }
@@ -239,17 +257,27 @@ export default function TailorPage({
           <Card>
             <CardContent className="py-12">
               <div className="flex flex-col items-center gap-4">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <div className="text-center">
-                  <p className="font-medium">Tailoring your resume...</p>
+                <div className="relative">
+                  <Sparkles className="h-8 w-8 text-primary animate-pulse" />
+                  <Loader2 className="h-8 w-8 animate-spin text-primary/50 absolute inset-0" />
+                </div>
+                <div className="text-center space-y-2">
+                  <p className="font-medium">Analyzing & Tailoring your resume...</p>
                   <p className="text-sm text-muted-foreground">
-                    AI is optimizing for{" "}
+                    Optimizing for{" "}
                     {selectedJob?.title || "the selected job"}
                     {selectedJob?.companyName &&
                       ` at ${selectedJob.companyName}`}
                   </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground mt-3">
+                    <Badge variant="outline" className="text-xs">
+                      <Zap className="h-3 w-3 mr-1" />
+                      Hybrid System
+                    </Badge>
+                    <span>Running pre-analysis, applying rules, and scoring</span>
+                  </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    This may take up to 60 seconds
+                    This may take up to 90 seconds
                   </p>
                 </div>
               </div>
@@ -260,9 +288,44 @@ export default function TailorPage({
         {/* Results */}
         {tailorResult && resume && (
           <StaggerContainer className="space-y-6">
-            {/* Changes Summary */}
+            {/* Recruiter Readiness Score - Main Feature */}
             <StaggerItem>
-              <ChangesSummary changes={tailorResult.changes} />
+              <div className="grid gap-6 md:grid-cols-[1fr_300px]">
+                <div className="space-y-6">
+                  {/* Changes Summary */}
+                  <ChangesSummary changes={tailorResult.changes} />
+
+                  {/* Processing Stats */}
+                  <Card className="bg-muted/30">
+                    <CardContent className="pt-4 pb-4">
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>Processed in {(tailorResult.processingTimeMs / 1000).toFixed(1)}s</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Zap className="h-3.5 w-3.5" />
+                          <span>{tailorResult.tokenUsage.total.toLocaleString()} tokens used</span>
+                        </div>
+                        {tailorResult.tokenUsage.savedVsPureAI > 0 && (
+                          <Badge variant="outline" className="text-xs text-green-600 border-green-200 bg-green-50">
+                            {tailorResult.tokenUsage.savedVsPureAI.toLocaleString()} tokens saved
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="text-xs">
+                          {tailorResult.appliedRules.length} rules applied
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Score Card */}
+                <RecruiterReadinessCard
+                  score={tailorResult.qualityScore}
+                  showRecommendations={true}
+                />
+              </div>
             </StaggerItem>
 
             {/* Comparison View */}
