@@ -241,11 +241,14 @@ function repairJson(jsonStr: string): string {
   repaired = repaired.replace(/'/g, '"');
 
   // Fix unquoted property names (e.g., {key: "value"} -> {"key": "value"})
-  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+  // Use multiple passes to catch nested objects
+  for (let i = 0; i < 3; i++) {
+    repaired = repaired.replace(/([{,][\s\n\r]*)([a-zA-Z_][a-zA-Z0-9_]*)([\s\n\r]*:)/gm, '$1"$2"$3');
+  }
 
   // Remove trailing commas before ] or }
-  repaired = repaired.replace(/,\s*]/g, "]");
-  repaired = repaired.replace(/,\s*}/g, "}");
+  repaired = repaired.replace(/,[\s\n\r]*]/g, "]");
+  repaired = repaired.replace(/,[\s\n\r]*}/g, "}");
 
   // Fix unescaped newlines in strings
   repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (_match, p1, p2) => {
@@ -272,31 +275,25 @@ function repairJson(jsonStr: string): string {
  * Parse and validate the chat response from AI
  */
 function parseChatResponse(text: string): ChatResponse {
-  const jsonStr = extractJsonFromResponse(text);
+  const rawJsonStr = extractJsonFromResponse(text);
+  const jsonStr = repairJson(rawJsonStr);
+
+  console.log("[SoftSkills] Repaired JSON (first 200 chars):", jsonStr.substring(0, 200));
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonStr);
-  } catch (_firstParseError) {
-    // Try to repair the JSON and parse again
-    console.log("[SoftSkills] First parse failed, attempting repair...");
-    const repairedJson = repairJson(jsonStr);
+  } catch (parseError) {
+    console.error("[SoftSkills] JSON parse error:", parseError);
+    console.error("[SoftSkills] Raw JSON (first 500 chars):", rawJsonStr.substring(0, 500));
+    console.error("[SoftSkills] Repaired JSON (first 500 chars):", jsonStr.substring(0, 500));
 
-    try {
-      parsed = JSON.parse(repairedJson);
-      console.log("[SoftSkills] Repair successful!");
-    } catch (secondParseError) {
-      // Log detailed error information for debugging
-      console.error("[SoftSkills] JSON parse error after repair:", secondParseError);
-      console.error("[SoftSkills] Original JSON (first 500 chars):", jsonStr.substring(0, 500));
-
-      const errorMessage = secondParseError instanceof Error ? secondParseError.message : "Unknown parse error";
-      throw new SoftSkillsError(
-        `Failed to parse AI response: ${errorMessage}`,
-        "PARSE_ERROR",
-        secondParseError
-      );
-    }
+    const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
+    throw new SoftSkillsError(
+      `Failed to parse AI response: ${errorMessage}`,
+      "PARSE_ERROR",
+      parseError
+    );
   }
 
   const raw = parsed as {

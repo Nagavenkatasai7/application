@@ -291,11 +291,14 @@ function repairJson(jsonStr: string): string {
   repaired = repaired.replace(/'/g, '"');
 
   // Fix unquoted property names (e.g., {key: "value"} -> {"key": "value"})
-  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+  // Use multiple passes to catch nested objects
+  for (let i = 0; i < 3; i++) {
+    repaired = repaired.replace(/([{,][\s\n\r]*)([a-zA-Z_][a-zA-Z0-9_]*)([\s\n\r]*:)/gm, '$1"$2"$3');
+  }
 
   // Remove trailing commas before ] or }
-  repaired = repaired.replace(/,\s*]/g, "]");
-  repaired = repaired.replace(/,\s*}/g, "}");
+  repaired = repaired.replace(/,[\s\n\r]*]/g, "]");
+  repaired = repaired.replace(/,[\s\n\r]*}/g, "}");
 
   // Fix unescaped newlines in strings
   repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (_match, p1, p2) => {
@@ -446,30 +449,27 @@ export async function analyzeContext(
     // Parse JSON response
     const jsonStr = extractJsonFromResponse(textContent.text);
 
+    // Always apply repair first for robustness
+    const rawJsonStr = jsonStr;
+    const repairedJsonStr = repairJson(rawJsonStr);
+
+    console.log("[Context] Extracted JSON length:", rawJsonStr.length);
+    console.log("[Context] Repaired JSON (first 200 chars):", repairedJsonStr.substring(0, 200));
+
     let parsed: unknown;
     try {
-      parsed = JSON.parse(jsonStr);
-    } catch (_firstParseError) {
-      // Try to repair the JSON and parse again
-      console.log("[Context] First parse failed, attempting repair...");
-      const repairedJson = repairJson(jsonStr);
+      parsed = JSON.parse(repairedJsonStr);
+    } catch (parseError) {
+      console.error("[Context] JSON parse error:", parseError);
+      console.error("[Context] Raw JSON (first 500 chars):", rawJsonStr.substring(0, 500));
+      console.error("[Context] Repaired JSON (first 500 chars):", repairedJsonStr.substring(0, 500));
 
-      try {
-        parsed = JSON.parse(repairedJson);
-        console.log("[Context] Repair successful!");
-      } catch (secondParseError) {
-        // Log detailed error information for debugging
-        console.error("[Context] JSON parse error after repair:", secondParseError);
-        console.error("[Context] Original JSON (first 1000 chars):", jsonStr.substring(0, 1000));
-        console.error("[Context] Original JSON (last 500 chars):", jsonStr.substring(jsonStr.length - 500));
-
-        const errorMessage = secondParseError instanceof Error ? secondParseError.message : "Unknown parse error";
-        throw new ContextError(
-          `Failed to parse AI response: ${errorMessage}`,
-          "PARSE_ERROR",
-          secondParseError
-        );
-      }
+      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
+      throw new ContextError(
+        `Failed to parse AI response: ${errorMessage}`,
+        "PARSE_ERROR",
+        parseError
+      );
     }
 
     // Type-check and transform the response

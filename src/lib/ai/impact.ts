@@ -245,14 +245,19 @@ function repairJson(jsonStr: string): string {
   let repaired = jsonStr;
 
   // Fix single quotes to double quotes for property names and string values
+  // This handles cases like {'key': 'value'} -> {"key": "value"}
   repaired = repaired.replace(/'/g, '"');
 
   // Fix unquoted property names (e.g., {key: "value"} -> {"key": "value"})
-  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+  // Use multiple passes to catch nested objects
+  // Pattern matches: { or , followed by whitespace/newlines, then unquoted identifier, then :
+  for (let i = 0; i < 3; i++) {
+    repaired = repaired.replace(/([{,][\s\n\r]*)([a-zA-Z_][a-zA-Z0-9_]*)([\s\n\r]*:)/gm, '$1"$2"$3');
+  }
 
   // Remove trailing commas before ] or }
-  repaired = repaired.replace(/,\s*]/g, "]");
-  repaired = repaired.replace(/,\s*}/g, "}");
+  repaired = repaired.replace(/,[\s\n\r]*]/g, "]");
+  repaired = repaired.replace(/,[\s\n\r]*}/g, "}");
 
   // Fix unescaped newlines in strings
   repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (_match, p1, p2) => {
@@ -330,33 +335,28 @@ export async function analyzeImpact(
       );
     }
 
-    // Parse JSON response
-    const jsonStr = extractJsonFromResponse(textContent.text);
+    // Parse JSON response - always apply repair first for robustness
+    const rawJsonStr = extractJsonFromResponse(textContent.text);
+    const jsonStr = repairJson(rawJsonStr);
+
+    console.log("[Impact] Extracted JSON length:", rawJsonStr.length);
+    console.log("[Impact] Repaired JSON (first 200 chars):", jsonStr.substring(0, 200));
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(jsonStr);
-    } catch (_firstParseError) {
-      // Try to repair the JSON and parse again
-      console.log("[Impact] First parse failed, attempting repair...");
-      const repairedJson = repairJson(jsonStr);
+    } catch (parseError) {
+      // Log detailed error information for debugging
+      console.error("[Impact] JSON parse error:", parseError);
+      console.error("[Impact] Raw JSON (first 500 chars):", rawJsonStr.substring(0, 500));
+      console.error("[Impact] Repaired JSON (first 500 chars):", jsonStr.substring(0, 500));
 
-      try {
-        parsed = JSON.parse(repairedJson);
-        console.log("[Impact] Repair successful!");
-      } catch (secondParseError) {
-        // Log detailed error information for debugging
-        console.error("[Impact] JSON parse error after repair:", secondParseError);
-        console.error("[Impact] Original JSON (first 1000 chars):", jsonStr.substring(0, 1000));
-        console.error("[Impact] Original JSON (last 500 chars):", jsonStr.substring(jsonStr.length - 500));
-
-        const errorMessage = secondParseError instanceof Error ? secondParseError.message : "Unknown parse error";
-        throw new ImpactError(
-          `Failed to parse AI response: ${errorMessage}`,
-          "PARSE_ERROR",
-          secondParseError
-        );
-      }
+      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
+      throw new ImpactError(
+        `Failed to parse AI response: ${errorMessage}`,
+        "PARSE_ERROR",
+        parseError
+      );
     }
 
     // Type-check and transform the response

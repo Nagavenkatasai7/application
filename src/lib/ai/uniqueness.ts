@@ -227,20 +227,19 @@ function repairJson(jsonStr: string): string {
   let repaired = jsonStr;
 
   // Fix single quotes to double quotes for property names and string values
-  // This handles cases like {'key': 'value'} -> {"key": "value"}
-  // Be careful not to replace single quotes inside double-quoted strings
   repaired = repaired.replace(/'/g, '"');
 
   // Fix unquoted property names (e.g., {key: "value"} -> {"key": "value"})
-  // Match property names that are not quoted
-  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+  // Use multiple passes to catch nested objects
+  for (let i = 0; i < 3; i++) {
+    repaired = repaired.replace(/([{,][\s\n\r]*)([a-zA-Z_][a-zA-Z0-9_]*)([\s\n\r]*:)/gm, '$1"$2"$3');
+  }
 
   // Remove trailing commas before ] or }
-  repaired = repaired.replace(/,\s*]/g, "]");
-  repaired = repaired.replace(/,\s*}/g, "}");
+  repaired = repaired.replace(/,[\s\n\r]*]/g, "]");
+  repaired = repaired.replace(/,[\s\n\r]*}/g, "}");
 
-  // Fix unescaped newlines in strings (common AI issue)
-  // This is a simplified fix - replaces actual newlines inside strings with \n
+  // Fix unescaped newlines in strings
   repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (_match, p1, p2) => {
     return `"${p1}\\n${p2}"`;
   });
@@ -251,7 +250,6 @@ function repairJson(jsonStr: string): string {
   const openBrackets = (repaired.match(/\[/g) || []).length;
   const closeBrackets = (repaired.match(/]/g) || []).length;
 
-  // Add missing closing brackets/braces
   for (let i = 0; i < openBrackets - closeBrackets; i++) {
     repaired += "]";
   }
@@ -312,35 +310,28 @@ export async function analyzeUniqueness(
       );
     }
 
-    // Parse JSON response
-    const jsonStr = extractJsonFromResponse(textContent.text);
+    // Parse JSON response - always apply repair first for robustness
+    const rawJsonStr = extractJsonFromResponse(textContent.text);
+    const jsonStr = repairJson(rawJsonStr);
+
+    console.log("[Uniqueness] Extracted JSON length:", rawJsonStr.length);
+    console.log("[Uniqueness] Repaired JSON (first 200 chars):", jsonStr.substring(0, 200));
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(jsonStr);
-    } catch (_firstParseError) {
-      // Try to repair the JSON and parse again
-      console.log("[Uniqueness] First parse failed, attempting repair...");
-      const repairedJson = repairJson(jsonStr);
+    } catch (parseError) {
+      // Log detailed error information for debugging
+      console.error("[Uniqueness] JSON parse error:", parseError);
+      console.error("[Uniqueness] Raw JSON (first 500 chars):", rawJsonStr.substring(0, 500));
+      console.error("[Uniqueness] Repaired JSON (first 500 chars):", jsonStr.substring(0, 500));
 
-      try {
-        parsed = JSON.parse(repairedJson);
-        console.log("[Uniqueness] Repair successful!");
-      } catch (secondParseError) {
-        // Log detailed error information for debugging
-        console.error("[Uniqueness] JSON parse error after repair:", secondParseError);
-        console.error("[Uniqueness] Original JSON (first 1000 chars):", jsonStr.substring(0, 1000));
-        console.error("[Uniqueness] Original JSON (last 500 chars):", jsonStr.substring(jsonStr.length - 500));
-        console.error("[Uniqueness] Repaired JSON (first 1000 chars):", repairedJson.substring(0, 1000));
-        console.error("[Uniqueness] Repaired JSON (last 500 chars):", repairedJson.substring(repairedJson.length - 500));
-
-        const errorMessage = secondParseError instanceof Error ? secondParseError.message : "Unknown parse error";
-        throw new UniquenessError(
-          `Failed to parse AI response: ${errorMessage}`,
-          "PARSE_ERROR",
-          secondParseError
-        );
-      }
+      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
+      throw new UniquenessError(
+        `Failed to parse AI response: ${errorMessage}`,
+        "PARSE_ERROR",
+        parseError
+      );
     }
 
     // Type-check and transform the response
