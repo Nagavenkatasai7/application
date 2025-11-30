@@ -59,6 +59,10 @@ export default defineConfig({
         'src/lib/ai/retry/retry-logger.ts',
         'src/lib/ai/retry/retry-strategy.ts',
         'src/lib/ai/retry/index.ts',
+        // Exclude LinkedIn integration (external API integration via Apify)
+        'src/lib/linkedin/**',
+        'src/app/api/linkedin/**',
+        'src/components/jobs/linkedin-*.tsx',
         // Exclude re-export index files
         'src/lib/ai/index.ts',
         'src/stores/index.ts',
