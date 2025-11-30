@@ -140,38 +140,84 @@ function extractJsonFromResponse(text: string): string {
   console.log("[Uniqueness] Raw AI response length:", text.length);
   console.log("[Uniqueness] Raw AI response preview:", text.substring(0, 500));
 
-  // Try to extract JSON from markdown code block (most common format)
-  const jsonBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  // Clean the text first - remove any BOM or control characters
+  let cleanText = text.replace(/^\uFEFF/, "").trim();
+
+  // Strategy 1: Try to extract JSON from markdown code block (most common format)
+  // Use a greedy match to get the LAST closing ``` to handle nested code examples
+  const jsonBlockMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)```\s*$/);
   if (jsonBlockMatch) {
-    console.log("[Uniqueness] Found JSON in code block");
-    return jsonBlockMatch[1].trim();
+    console.log("[Uniqueness] Found JSON in code block (end-anchored)");
+    const extracted = jsonBlockMatch[1].trim();
+    if (extracted.startsWith("{") && extracted.endsWith("}")) {
+      return extracted;
+    }
   }
 
-  // Try to find a JSON object starting with { and ending with }
-  // Use a more precise regex that finds the outermost balanced braces
-  const startIndex = text.indexOf("{");
+  // Strategy 2: Try non-anchored match for code block
+  const jsonBlockMatch2 = cleanText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (jsonBlockMatch2) {
+    console.log("[Uniqueness] Found JSON in code block (non-anchored)");
+    const extracted = jsonBlockMatch2[1].trim();
+    if (extracted.startsWith("{") && extracted.endsWith("}")) {
+      return extracted;
+    }
+  }
+
+  // Strategy 3: Find JSON object with balanced brace matching
+  const startIndex = cleanText.indexOf("{");
   if (startIndex !== -1) {
     let braceCount = 0;
     let endIndex = -1;
+    let inString = false;
+    let escapeNext = false;
 
-    for (let i = startIndex; i < text.length; i++) {
-      if (text[i] === "{") braceCount++;
-      if (text[i] === "}") braceCount--;
-      if (braceCount === 0) {
-        endIndex = i;
-        break;
+    for (let i = startIndex; i < cleanText.length; i++) {
+      const char = cleanText[i];
+
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === '"' && !escapeNext) {
+        inString = !inString;
+        continue;
+      }
+
+      if (!inString) {
+        if (char === "{") braceCount++;
+        if (char === "}") braceCount--;
+        if (braceCount === 0) {
+          endIndex = i;
+          break;
+        }
       }
     }
 
     if (endIndex !== -1) {
-      const jsonStr = text.substring(startIndex, endIndex + 1);
-      console.log("[Uniqueness] Found JSON object, length:", jsonStr.length);
+      const jsonStr = cleanText.substring(startIndex, endIndex + 1);
+      console.log("[Uniqueness] Found JSON object via brace matching, length:", jsonStr.length);
       return jsonStr;
     }
   }
 
+  // Strategy 4: Last resort - try to find any valid JSON structure
+  const lastBrace = cleanText.lastIndexOf("}");
+  const firstBrace = cleanText.indexOf("{");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const jsonStr = cleanText.substring(firstBrace, lastBrace + 1);
+    console.log("[Uniqueness] Found JSON object via first/last brace, length:", jsonStr.length);
+    return jsonStr;
+  }
+
   console.log("[Uniqueness] No JSON found, returning raw text");
-  return text.trim();
+  return cleanText;
 }
 
 /**
@@ -231,8 +277,14 @@ export async function analyzeUniqueness(
     try {
       parsed = JSON.parse(jsonStr);
     } catch (parseError) {
+      // Log detailed error information for debugging
+      console.error("[Uniqueness] JSON parse error:", parseError);
+      console.error("[Uniqueness] Attempted to parse (first 1000 chars):", jsonStr.substring(0, 1000));
+      console.error("[Uniqueness] Attempted to parse (last 500 chars):", jsonStr.substring(jsonStr.length - 500));
+
+      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
       throw new UniquenessError(
-        "Failed to parse AI response",
+        `Failed to parse AI response: ${errorMessage}`,
         "PARSE_ERROR",
         parseError
       );
