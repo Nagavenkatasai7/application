@@ -185,13 +185,15 @@ export function getErrorCode(error: unknown): string {
 export function enhanceError(
   originalError: unknown,
   attempts: number,
-  maxRetries: number
+  maxRetries: number,
+  reason?: string
 ): Error {
   const message =
     originalError instanceof Error
       ? originalError.message
       : String(originalError);
 
+  const errorCode = reason || getErrorCode(originalError);
   const enhanced = new Error(
     `AI request failed after ${attempts + 1} attempt(s): ${message}`
   );
@@ -207,14 +209,40 @@ export function enhanceError(
     value: {
       attempts: attempts + 1,
       maxRetries: maxRetries + 1,
-      exhaustedRetries: attempts >= maxRetries,
-      errorCode: getErrorCode(originalError),
+      exhaustedRetries: attempts >= maxRetries || reason === "TIME_BUDGET_EXHAUSTED",
+      errorCode,
+      reason,
     },
     enumerable: false,
     writable: false,
   });
 
   return enhanced;
+}
+
+/**
+ * Get user-friendly error message based on error code
+ */
+export function getUserFriendlyMessage(code: string): string {
+  switch (code) {
+    case "MAX_RETRIES_EXCEEDED":
+    case "SERVICE_OVERLOADED":
+      return "The AI service is currently busy. Please try again in a few moments.";
+    case "TIME_BUDGET_EXHAUSTED":
+      return "The request took too long. Please try again or use a shorter job description.";
+    case "TIMEOUT":
+      return "The request timed out. Try with a shorter job description.";
+    case "RATE_LIMIT":
+      return "Too many requests. Please wait a moment before trying again.";
+    case "AUTH_ERROR":
+      return "Authentication failed. Please check your API key configuration.";
+    case "NETWORK_ERROR":
+      return "Network connection issue. Please check your internet connection.";
+    case "SERVER_ERROR":
+      return "The AI service encountered an error. Please try again.";
+    default:
+      return "An unexpected error occurred. Please try again.";
+  }
 }
 
 /**
@@ -228,6 +256,7 @@ export function hasRetryMetadata(
     maxRetries: number;
     exhaustedRetries: boolean;
     errorCode: string;
+    reason?: string;
   };
 } {
   return (

@@ -200,19 +200,21 @@ export async function analyzeImpact(
   try {
     const client = createClient();
 
-    const response = await withRetry(() =>
-      client.messages.create({
-        model: modelConfig.model,
-        max_tokens: 4000, // More tokens needed for bullet-by-bullet analysis
-        temperature: 0.4, // Lower temperature for consistent analysis
-        system: IMPACT_SYSTEM_PROMPT,
-        messages: [
-          {
-            role: "user",
-            content: userPrompt,
-          },
-        ],
-      })
+    const response = await withRetry(
+      () =>
+        client.messages.create({
+          model: modelConfig.model,
+          max_tokens: 4000, // More tokens needed for bullet-by-bullet analysis
+          temperature: 0.4, // Lower temperature for consistent analysis
+          system: IMPACT_SYSTEM_PROMPT,
+          messages: [
+            {
+              role: "user",
+              content: userPrompt,
+            },
+          ],
+        }),
+      { timeBudgetMs: 170000 } // 170s budget (10s buffer for Vercel 180s limit)
     );
 
     // Extract text content

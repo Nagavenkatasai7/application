@@ -247,19 +247,21 @@ export async function researchCompany(
   try {
     const client = createClient();
 
-    const response = await withRetry(() =>
-      client.messages.create({
-        model: modelConfig.model,
-        max_tokens: 4000,
-        temperature: 0.5, // Balanced for creativity and consistency
-        system: COMPANY_RESEARCH_SYSTEM_PROMPT,
-        messages: [
-          {
-            role: "user",
-            content: userPrompt,
-          },
-        ],
-      })
+    const response = await withRetry(
+      () =>
+        client.messages.create({
+          model: modelConfig.model,
+          max_tokens: 4000,
+          temperature: 0.5, // Balanced for creativity and consistency
+          system: COMPANY_RESEARCH_SYSTEM_PROMPT,
+          messages: [
+            {
+              role: "user",
+              content: userPrompt,
+            },
+          ],
+        }),
+      { timeBudgetMs: 170000 } // 170s budget (10s buffer for Vercel 180s limit)
     );
 
     // Extract text content

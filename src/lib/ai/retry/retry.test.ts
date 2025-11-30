@@ -212,9 +212,9 @@ describe("Retry Module", () => {
 
   describe("DEFAULT_RETRY_CONFIG", () => {
     it("should have expected default values", () => {
-      expect(DEFAULT_RETRY_CONFIG.maxRetries).toBe(3);
+      expect(DEFAULT_RETRY_CONFIG.maxRetries).toBe(2); // 3 total attempts (fits in 180s Vercel budget)
       expect(DEFAULT_RETRY_CONFIG.initialDelayMs).toBe(1000);
-      expect(DEFAULT_RETRY_CONFIG.maxDelayMs).toBe(30000);
+      expect(DEFAULT_RETRY_CONFIG.maxDelayMs).toBe(10000); // Reduced from 30s to fail faster
       expect(DEFAULT_RETRY_CONFIG.backoffMultiplier).toBe(2);
       expect(DEFAULT_RETRY_CONFIG.jitterFactor).toBe(0.1);
       expect(DEFAULT_RETRY_CONFIG.respectRetryAfterHeader).toBe(true);

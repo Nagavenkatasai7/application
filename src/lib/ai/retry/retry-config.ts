@@ -46,9 +46,9 @@ export interface RetryConfig {
  * Default retry configuration
  */
 export const DEFAULT_RETRY_CONFIG: RetryConfig = {
-  maxRetries: 3,
+  maxRetries: 2, // 3 total attempts (fits in 180s Vercel budget with 60s timeout)
   initialDelayMs: 1000,
-  maxDelayMs: 30000,
+  maxDelayMs: 10000, // Reduced from 30s to fail faster
   backoffMultiplier: 2,
   jitterFactor: 0.1,
   retryableStatusCodes: [429, 500, 502, 503, 529],
@@ -59,9 +59,9 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
  * Zod schema for retry configuration validation
  */
 export const retryConfigSchema = z.object({
-  maxRetries: z.number().min(0).max(10).default(3),
+  maxRetries: z.number().min(0).max(10).default(2),
   initialDelayMs: z.number().positive().default(1000),
-  maxDelayMs: z.number().positive().default(30000),
+  maxDelayMs: z.number().positive().default(10000),
   backoffMultiplier: z.number().min(1).max(4).default(2),
   jitterFactor: z.number().min(0).max(1).default(0.1),
   retryableStatusCodes: z.array(z.number()).default([429, 500, 502, 503, 529]),
@@ -73,9 +73,9 @@ export const retryConfigSchema = z.object({
  */
 export function loadRetryConfig(): RetryConfig {
   return retryConfigSchema.parse({
-    maxRetries: parseInt(process.env.AI_RETRY_MAX_ATTEMPTS || "3", 10),
+    maxRetries: parseInt(process.env.AI_RETRY_MAX_ATTEMPTS || "2", 10),
     initialDelayMs: parseInt(process.env.AI_RETRY_INITIAL_DELAY_MS || "1000", 10),
-    maxDelayMs: parseInt(process.env.AI_RETRY_MAX_DELAY_MS || "30000", 10),
+    maxDelayMs: parseInt(process.env.AI_RETRY_MAX_DELAY_MS || "10000", 10),
     backoffMultiplier: parseFloat(process.env.AI_RETRY_BACKOFF_MULTIPLIER || "2"),
     jitterFactor: parseFloat(process.env.AI_RETRY_JITTER_FACTOR || "0.1"),
     retryableStatusCodes: process.env.AI_RETRY_STATUS_CODES

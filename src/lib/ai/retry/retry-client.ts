@@ -10,6 +10,14 @@ import { calculateDelay, delay } from "./retry-strategy";
 import { logRetryEvent } from "./retry-logger";
 
 /**
+ * Extended retry options with time budget support
+ */
+export interface RetryOptions extends Partial<RetryConfig> {
+  /** Total time budget in milliseconds for all retry attempts (optional) */
+  timeBudgetMs?: number;
+}
+
+/**
  * Execute an async operation with automatic retry on transient failures
  *
  * Features:
@@ -34,34 +42,44 @@ import { logRetryEvent } from "./retry-logger";
  */
 export async function withRetry<T>(
   operation: () => Promise<T>,
-  config?: Partial<RetryConfig>
+  options?: RetryOptions
 ): Promise<T> {
+  // Extract time budget before merging configs
+  const timeBudgetMs = options?.timeBudgetMs;
+  const startTime = Date.now();
+
   // Merge provided config with environment-loaded defaults
   const baseConfig = getRetryConfig();
   const finalConfig: RetryConfig = {
     ...DEFAULT_RETRY_CONFIG,
     ...baseConfig,
-    ...config,
+    ...options,
   };
 
-  return executeWithRetry(operation, finalConfig, 0);
+  return executeWithRetry(operation, finalConfig, 0, startTime, timeBudgetMs);
 }
 
 /**
- * Internal recursive retry executor
+ * Minimum time needed for a retry attempt (timeout buffer)
+ */
+const MIN_TIME_FOR_RETRY_MS = 15000; // 15 seconds minimum
+
+/**
+ * Internal recursive retry executor with time budget awareness
  */
 async function executeWithRetry<T>(
   operation: () => Promise<T>,
   config: RetryConfig,
-  attempt: number
+  attempt: number,
+  startTime: number,
+  timeBudgetMs?: number
 ): Promise<T> {
   try {
     return await operation();
   } catch (error) {
-    // Determine if we should retry
-    const shouldRetry =
-      attempt < config.maxRetries &&
-      isTransientError(error, config.retryableStatusCodes);
+    // Calculate remaining time budget
+    const elapsed = Date.now() - startTime;
+    const remaining = timeBudgetMs ? timeBudgetMs - elapsed : Infinity;
 
     // Calculate delay for potential retry
     const retryAfterMs = config.respectRetryAfterHeader
@@ -78,6 +96,15 @@ async function executeWithRetry<T>(
 
     // Use retry-after header if present, otherwise use calculated delay
     const delayMs = retryAfterMs ?? calculatedDelay;
+
+    // Check if we have enough time for another retry attempt
+    const hasTimeBudget = remaining > (delayMs + MIN_TIME_FOR_RETRY_MS);
+
+    // Determine if we should retry
+    const shouldRetry =
+      attempt < config.maxRetries &&
+      isTransientError(error, config.retryableStatusCodes) &&
+      hasTimeBudget;
 
     // Build retry event for logging
     const event: RetryEvent = {
@@ -98,14 +125,18 @@ async function executeWithRetry<T>(
 
     // If we shouldn't retry, throw enhanced error
     if (!shouldRetry) {
-      throw enhanceError(error, attempt, config.maxRetries);
+      // Add time budget exhaustion info to error if applicable
+      const reason = !hasTimeBudget && attempt < config.maxRetries
+        ? "TIME_BUDGET_EXHAUSTED"
+        : undefined;
+      throw enhanceError(error, attempt, config.maxRetries, reason);
     }
 
     // Wait before retrying
     await delay(delayMs);
 
     // Recursive retry
-    return executeWithRetry(operation, config, attempt + 1);
+    return executeWithRetry(operation, config, attempt + 1, startTime, timeBudgetMs);
   }
 }
 

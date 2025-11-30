@@ -15,7 +15,7 @@
  */
 
 // Main retry wrapper
-export { withRetry, createRetryWrapper } from "./retry-client";
+export { withRetry, createRetryWrapper, type RetryOptions } from "./retry-client";
 
 // Configuration
 export {
@@ -34,6 +34,7 @@ export {
   getErrorCode,
   enhanceError,
   hasRetryMetadata,
+  getUserFriendlyMessage,
 } from "./retry-errors";
 
 // Backoff strategy

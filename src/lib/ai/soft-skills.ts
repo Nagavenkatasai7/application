@@ -228,19 +228,21 @@ export async function startAssessment(skillName: string): Promise<ChatResponse> 
   try {
     const client = createClient();
 
-    const response = await withRetry(() =>
-      client.messages.create({
-        model: modelConfig.model,
-        max_tokens: 1000,
-        temperature: 0.7, // Slightly higher for natural conversation
-        system: SOFT_SKILLS_SYSTEM_PROMPT,
-        messages: [
-          {
-            role: "user",
-            content: userPrompt,
-          },
-        ],
-      })
+    const response = await withRetry(
+      () =>
+        client.messages.create({
+          model: modelConfig.model,
+          max_tokens: 1000,
+          temperature: 0.7, // Slightly higher for natural conversation
+          system: SOFT_SKILLS_SYSTEM_PROMPT,
+          messages: [
+            {
+              role: "user",
+              content: userPrompt,
+            },
+          ],
+        }),
+      { timeBudgetMs: 170000 } // 170s budget (10s buffer for Vercel 180s limit)
     );
 
     // Extract text content
@@ -365,14 +367,16 @@ export async function continueAssessment(
   try {
     const client = createClient();
 
-    const response = await withRetry(() =>
-      client.messages.create({
-        model: modelConfig.model,
-        max_tokens: 1000,
-        temperature: 0.7,
-        system: SOFT_SKILLS_SYSTEM_PROMPT,
-        messages: apiMessages,
-      })
+    const response = await withRetry(
+      () =>
+        client.messages.create({
+          model: modelConfig.model,
+          max_tokens: 1000,
+          temperature: 0.7,
+          system: SOFT_SKILLS_SYSTEM_PROMPT,
+          messages: apiMessages,
+        }),
+      { timeBudgetMs: 170000 } // 170s budget (10s buffer for Vercel 180s limit)
     );
 
     // Extract text content
