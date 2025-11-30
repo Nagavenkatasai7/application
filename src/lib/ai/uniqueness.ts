@@ -221,6 +221,39 @@ function extractJsonFromResponse(text: string): string {
 }
 
 /**
+ * Attempt to repair common JSON issues
+ */
+function repairJson(jsonStr: string): string {
+  let repaired = jsonStr;
+
+  // Remove trailing commas before ] or }
+  repaired = repaired.replace(/,\s*]/g, "]");
+  repaired = repaired.replace(/,\s*}/g, "}");
+
+  // Fix unescaped newlines in strings (common AI issue)
+  // This is a simplified fix - replaces actual newlines inside strings with \n
+  repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (match, p1, p2) => {
+    return `"${p1}\\n${p2}"`;
+  });
+
+  // Try to close unclosed brackets/braces if truncated
+  const openBraces = (repaired.match(/{/g) || []).length;
+  const closeBraces = (repaired.match(/}/g) || []).length;
+  const openBrackets = (repaired.match(/\[/g) || []).length;
+  const closeBrackets = (repaired.match(/]/g) || []).length;
+
+  // Add missing closing brackets/braces
+  for (let i = 0; i < openBrackets - closeBrackets; i++) {
+    repaired += "]";
+  }
+  for (let i = 0; i < openBraces - closeBraces; i++) {
+    repaired += "}";
+  }
+
+  return repaired;
+}
+
+/**
  * Analyze a resume for uniqueness factors
  */
 export async function analyzeUniqueness(
@@ -250,7 +283,7 @@ export async function analyzeUniqueness(
 
     const response = await client.messages.create({
       model: modelConfig.model,
-      max_tokens: 2500,
+      max_tokens: 4000, // Increased for complex resumes
       temperature: 0.4, // Lower temperature for consistent analysis
       system: UNIQUENESS_SYSTEM_PROMPT,
       messages: [
@@ -276,18 +309,29 @@ export async function analyzeUniqueness(
     let parsed: unknown;
     try {
       parsed = JSON.parse(jsonStr);
-    } catch (parseError) {
-      // Log detailed error information for debugging
-      console.error("[Uniqueness] JSON parse error:", parseError);
-      console.error("[Uniqueness] Attempted to parse (first 1000 chars):", jsonStr.substring(0, 1000));
-      console.error("[Uniqueness] Attempted to parse (last 500 chars):", jsonStr.substring(jsonStr.length - 500));
+    } catch (_firstParseError) {
+      // Try to repair the JSON and parse again
+      console.log("[Uniqueness] First parse failed, attempting repair...");
+      const repairedJson = repairJson(jsonStr);
 
-      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parse error";
-      throw new UniquenessError(
-        `Failed to parse AI response: ${errorMessage}`,
-        "PARSE_ERROR",
-        parseError
-      );
+      try {
+        parsed = JSON.parse(repairedJson);
+        console.log("[Uniqueness] Repair successful!");
+      } catch (secondParseError) {
+        // Log detailed error information for debugging
+        console.error("[Uniqueness] JSON parse error after repair:", secondParseError);
+        console.error("[Uniqueness] Original JSON (first 1000 chars):", jsonStr.substring(0, 1000));
+        console.error("[Uniqueness] Original JSON (last 500 chars):", jsonStr.substring(jsonStr.length - 500));
+        console.error("[Uniqueness] Repaired JSON (first 1000 chars):", repairedJson.substring(0, 1000));
+        console.error("[Uniqueness] Repaired JSON (last 500 chars):", repairedJson.substring(repairedJson.length - 500));
+
+        const errorMessage = secondParseError instanceof Error ? secondParseError.message : "Unknown parse error";
+        throw new UniquenessError(
+          `Failed to parse AI response: ${errorMessage}`,
+          "PARSE_ERROR",
+          secondParseError
+        );
+      }
     }
 
     // Type-check and transform the response
