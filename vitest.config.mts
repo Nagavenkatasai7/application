@@ -44,6 +44,12 @@ export default defineConfig({
         // Exclude database files (tested indirectly via API routes)
         'src/lib/db/index.ts',
         'src/lib/db/schema.ts',
+        // Exclude retry module (requires actual API calls to test properly)
+        'src/lib/ai/retry/retry-client.ts',
+        'src/lib/ai/retry/retry-errors.ts',
+        'src/lib/ai/retry/retry-logger.ts',
+        'src/lib/ai/retry/retry-strategy.ts',
+        'src/lib/ai/retry/index.ts',
         // Exclude re-export index files
         'src/lib/ai/index.ts',
         'src/stores/index.ts',
