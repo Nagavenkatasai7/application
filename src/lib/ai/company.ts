@@ -192,22 +192,110 @@ function createClient(): Anthropic {
 }
 
 /**
- * Extract JSON from AI response
+ * Extract JSON from AI response - handles various formats Claude might return
  */
 function extractJsonFromResponse(text: string): string {
-  // Try to extract JSON from markdown code block
-  const jsonBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  // Clean the text first - remove any BOM or control characters
+  const cleanText = text.replace(/^\uFEFF/, "").trim();
+
+  // Strategy 1: Try to extract JSON from markdown code block (end-anchored)
+  const jsonBlockMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)```\s*$/);
   if (jsonBlockMatch) {
-    return jsonBlockMatch[1].trim();
+    const extracted = jsonBlockMatch[1].trim();
+    if (extracted.startsWith("{") && extracted.endsWith("}")) {
+      return extracted;
+    }
   }
 
-  // Try to find raw JSON object
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    return jsonMatch[0];
+  // Strategy 2: Try non-anchored match for code block
+  const jsonBlockMatch2 = cleanText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (jsonBlockMatch2) {
+    const extracted = jsonBlockMatch2[1].trim();
+    if (extracted.startsWith("{") && extracted.endsWith("}")) {
+      return extracted;
+    }
   }
 
-  return text.trim();
+  // Strategy 3: Find JSON object with balanced brace matching
+  const startIndex = cleanText.indexOf("{");
+  if (startIndex !== -1) {
+    let braceCount = 0;
+    let endIndex = -1;
+    let inString = false;
+    let escapeNext = false;
+
+    for (let i = startIndex; i < cleanText.length; i++) {
+      const char = cleanText[i];
+
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === '"' && !escapeNext) {
+        inString = !inString;
+        continue;
+      }
+
+      if (!inString) {
+        if (char === "{") braceCount++;
+        if (char === "}") braceCount--;
+        if (braceCount === 0) {
+          endIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (endIndex !== -1) {
+      return cleanText.substring(startIndex, endIndex + 1);
+    }
+  }
+
+  // Strategy 4: Last resort - try to find any valid JSON structure
+  const lastBrace = cleanText.lastIndexOf("}");
+  const firstBrace = cleanText.indexOf("{");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return cleanText.substring(firstBrace, lastBrace + 1);
+  }
+
+  return cleanText;
+}
+
+/**
+ * Attempt to repair common JSON issues
+ */
+function repairJson(jsonStr: string): string {
+  let repaired = jsonStr;
+
+  // Remove trailing commas before ] or }
+  repaired = repaired.replace(/,\s*]/g, "]");
+  repaired = repaired.replace(/,\s*}/g, "}");
+
+  // Fix unescaped newlines in strings
+  repaired = repaired.replace(/"([^"]*)\n([^"]*)"/g, (_match, p1, p2) => {
+    return `"${p1}\\n${p2}"`;
+  });
+
+  // Try to close unclosed brackets/braces if truncated
+  const openBraces = (repaired.match(/{/g) || []).length;
+  const closeBraces = (repaired.match(/}/g) || []).length;
+  const openBrackets = (repaired.match(/\[/g) || []).length;
+  const closeBrackets = (repaired.match(/]/g) || []).length;
+
+  for (let i = 0; i < openBrackets - closeBrackets; i++) {
+    repaired += "]";
+  }
+  for (let i = 0; i < openBraces - closeBraces; i++) {
+    repaired += "}";
+  }
+
+  return repaired;
 }
 
 /**
@@ -288,12 +376,27 @@ export async function researchCompany(
     let parsed: unknown;
     try {
       parsed = JSON.parse(jsonStr);
-    } catch (parseError) {
-      throw new CompanyResearchError(
-        "Failed to parse AI response",
-        "PARSE_ERROR",
-        parseError
-      );
+    } catch (_firstParseError) {
+      // Try to repair the JSON and parse again
+      console.log("[Company] First parse failed, attempting repair...");
+      const repairedJson = repairJson(jsonStr);
+
+      try {
+        parsed = JSON.parse(repairedJson);
+        console.log("[Company] Repair successful!");
+      } catch (secondParseError) {
+        // Log detailed error information for debugging
+        console.error("[Company] JSON parse error after repair:", secondParseError);
+        console.error("[Company] Original JSON (first 1000 chars):", jsonStr.substring(0, 1000));
+        console.error("[Company] Original JSON (last 500 chars):", jsonStr.substring(jsonStr.length - 500));
+
+        const errorMessage = secondParseError instanceof Error ? secondParseError.message : "Unknown parse error";
+        throw new CompanyResearchError(
+          `Failed to parse AI response: ${errorMessage}`,
+          "PARSE_ERROR",
+          secondParseError
+        );
+      }
     }
 
     // Type-check and transform the response
