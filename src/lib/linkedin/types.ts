@@ -8,22 +8,24 @@
 // TIME FRAME OPTIONS
 // =============================================================================
 
-// Apify LinkedIn Jobs Scraper only supports these time filters:
+// LinkedIn time filters use seconds-based values (f_TPR parameter):
+// - r3600 = 1 hour (3,600 seconds)
 // - r86400 = 24 hours (86,400 seconds)
 // - r604800 = 1 week (604,800 seconds)
 // - r2592000 = 1 month (2,592,000 seconds)
-export type TimeFrame = "24h" | "1w" | "1m";
+export type TimeFrame = "1h" | "24h" | "1w" | "1m";
 
 export const TIME_FRAME_OPTIONS: Record<
   TimeFrame,
   { label: string; value: number; unit: string }
 > = {
+  "1h": { label: "Past hour", value: 1, unit: "hour" },
   "24h": { label: "Past 24 hours", value: 24, unit: "hours" },
   "1w": { label: "Past week", value: 7, unit: "days" },
   "1m": { label: "Past month", value: 30, unit: "days" },
 };
 
-export const DEFAULT_TIME_FRAME: TimeFrame = "24h";
+export const DEFAULT_TIME_FRAME: TimeFrame = "1h";
 
 // =============================================================================
 // SEARCH PARAMETERS

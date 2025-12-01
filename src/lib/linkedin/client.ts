@@ -115,9 +115,10 @@ async function startActorRun(
 function buildActorInput(params: LinkedInSearchParams): Record<string, unknown> {
   const { keywords, location, timeFrame, limit = 25 } = params;
 
-  // Map our timeFrame to Apify LinkedIn actor's publishedAt format
-  // Apify only supports: r86400 (24h), r604800 (week), r2592000 (month)
+  // Map our timeFrame to LinkedIn's f_TPR parameter format (seconds)
+  // LinkedIn uses: r3600 (1h), r86400 (24h), r604800 (week), r2592000 (month)
   const timeFilterMap: Record<string, string> = {
+    "1h": "r3600",       // 1 hour = 3,600 seconds
     "24h": "r86400",     // 24 hours = 86,400 seconds
     "1w": "r604800",     // 7 days = 604,800 seconds
     "1m": "r2592000",    // 30 days = 2,592,000 seconds
