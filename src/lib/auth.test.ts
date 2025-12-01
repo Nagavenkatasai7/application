@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getOrCreateLocalUser, getUserById, updateUser } from './auth'
+
+// Mock NextAuth before importing auth module
+vi.mock('@/auth', () => ({
+  auth: vi.fn(() => Promise.resolve(null)),
+}))
+
+import { getOrCreateLocalUser, getUserById, updateUser, getAuthUser } from './auth'
 
 // Create mock functions for chained calls
 const mockLimit = vi.fn()
@@ -38,58 +44,62 @@ describe('Auth Module', () => {
     vi.clearAllMocks()
   })
 
-  describe('getOrCreateLocalUser', () => {
-    it('should return existing user if one exists', async () => {
-      const existingUser = {
-        id: 'existing-user-id',
-        email: 'user@local.app',
-        name: 'Existing User',
+  describe('getAuthUser', () => {
+    it('should return null when no session exists', async () => {
+      const { auth } = await import('@/auth')
+      vi.mocked(auth).mockResolvedValue(null)
+
+      const user = await getAuthUser()
+
+      expect(user).toBeNull()
+    })
+
+    it('should return user when session exists', async () => {
+      const { auth } = await import('@/auth')
+      vi.mocked(auth).mockResolvedValue({
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test User' },
+        expires: new Date().toISOString(),
+      } as any)
+
+      const user = await getAuthUser()
+
+      expect(user).toEqual({
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test User',
+      })
+    })
+  })
+
+  describe('getOrCreateLocalUser (deprecated)', () => {
+    it('should throw error when no session exists', async () => {
+      const { auth } = await import('@/auth')
+      vi.mocked(auth).mockResolvedValue(null)
+
+      await expect(getOrCreateLocalUser()).rejects.toThrow('Authentication required')
+    })
+
+    it('should return user when session exists', async () => {
+      const { auth } = await import('@/auth')
+      const mockUser = {
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test User',
+        emailVerified: null,
+        image: null,
         createdAt: new Date(),
       }
 
-      mockLimit.mockResolvedValue([existingUser])
+      vi.mocked(auth).mockResolvedValue({
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test User' },
+        expires: new Date().toISOString(),
+      } as any)
+
+      mockSelectWhere.mockResolvedValue([mockUser])
 
       const user = await getOrCreateLocalUser()
 
-      expect(user).toEqual(existingUser)
-    })
-
-    it('should create new user if none exists', async () => {
-      const newUser = {
-        id: 'mock-uuid-123',
-        email: 'user@local.app',
-        name: 'Local User',
-        createdAt: new Date(),
-      }
-
-      // First call - no existing users
-      mockLimit.mockResolvedValueOnce([])
-      // After insert - return the new user
-      mockSelectWhere.mockResolvedValue([newUser])
-      mockValues.mockResolvedValue(undefined)
-
-      const user = await getOrCreateLocalUser()
-
-      expect(user.id).toBe('mock-uuid-123')
-      expect(user.email).toBe('user@local.app')
-      expect(user.name).toBe('Local User')
-    })
-
-    it('should use default email and name for new user', async () => {
-      mockLimit.mockResolvedValueOnce([])
-      mockSelectWhere.mockResolvedValue([
-        { id: 'mock-uuid-123', email: 'user@local.app', name: 'Local User' },
-      ])
-      mockValues.mockResolvedValue(undefined)
-
-      await getOrCreateLocalUser()
-
-      expect(mockValues).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: 'user@local.app',
-          name: 'Local User',
-        })
-      )
+      expect(user).toEqual(mockUser)
     })
   })
 

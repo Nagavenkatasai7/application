@@ -1,54 +1,65 @@
+/**
+ * Authentication Helpers
+ *
+ * Provides helper functions for getting the authenticated user from NextAuth sessions.
+ */
+
+import { auth } from "@/auth";
 import { db, users, type User } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { v4 as uuidv4 } from "uuid";
 
-const DEFAULT_USER_EMAIL = "user@local.app";
-const DEFAULT_USER_NAME = "Local User";
+// ============================================================================
+// Types
+// ============================================================================
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string | null;
+};
+
+// ============================================================================
+// Session Helpers
+// ============================================================================
 
 /**
- * Get or create the local user
- * Since this is a single-user local-first app, we auto-create one user
- * Handles race conditions when multiple concurrent requests try to create a user
+ * Get the authenticated user from the session.
+ * Returns null if not authenticated.
  */
-export async function getOrCreateLocalUser(): Promise<User> {
-  // Try to find existing user
-  const existingUsers = await db.select().from(users).limit(1);
+export async function getAuthUser(): Promise<AuthUser | null> {
+  const session = await auth();
 
-  if (existingUsers.length > 0) {
-    return existingUsers[0];
+  if (!session?.user?.id) {
+    return null;
   }
 
-  // Create default local user with timestamps
-  const now = new Date();
-  const newUser: typeof users.$inferInsert = {
-    id: uuidv4(),
-    email: DEFAULT_USER_EMAIL,
-    name: DEFAULT_USER_NAME,
+  return {
+    id: session.user.id,
+    email: session.user.email!,
+    name: session.user.name ?? null,
   };
-
-  try {
-    await db.insert(users).values(newUser);
-
-    // Return the user directly to avoid replica lag
-    return {
-      ...newUser,
-      createdAt: now,
-      updatedAt: now,
-    } as User;
-  } catch (error) {
-    // If insert fails due to race condition (unique constraint on email),
-    // another request already created the user - fetch it
-    const [existingUser] = await db.select().from(users).limit(1);
-    if (existingUser) {
-      return existingUser;
-    }
-    // Re-throw if we still can't find the user
-    throw error;
-  }
 }
 
 /**
- * Get user by ID
+ * Require authentication - throws if not authenticated.
+ * Use this in API routes that require authentication.
+ */
+export async function requireAuth(): Promise<AuthUser> {
+  const user = await getAuthUser();
+
+  if (!user) {
+    throw new Error("Authentication required");
+  }
+
+  return user;
+}
+
+// ============================================================================
+// User Database Helpers
+// ============================================================================
+
+/**
+ * Get user by ID from the database.
  */
 export async function getUserById(id: string): Promise<User | null> {
   const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -56,7 +67,18 @@ export async function getUserById(id: string): Promise<User | null> {
 }
 
 /**
- * Update user profile
+ * Get user by email from the database.
+ */
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email.toLowerCase()));
+  return user || null;
+}
+
+/**
+ * Update user profile.
  */
 export async function updateUser(
   id: string,
@@ -64,4 +86,26 @@ export async function updateUser(
 ): Promise<User | null> {
   await db.update(users).set(data).where(eq(users.id, id));
   return getUserById(id);
+}
+
+// ============================================================================
+// Legacy Compatibility (Deprecated)
+// ============================================================================
+
+/**
+ * @deprecated Use getAuthUser() or requireAuth() instead.
+ * This function is kept temporarily for backwards compatibility during migration.
+ */
+export async function getOrCreateLocalUser(): Promise<User> {
+  // Try to get user from session first
+  const authUser = await getAuthUser();
+  if (authUser) {
+    const dbUser = await getUserById(authUser.id);
+    if (dbUser) {
+      return dbUser;
+    }
+  }
+
+  // In production, this should not be called without a session
+  throw new Error("Authentication required. Please log in.");
 }

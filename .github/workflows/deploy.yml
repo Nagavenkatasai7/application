@@ -90,7 +90,7 @@ jobs:
           # Delete existing env vars to recreate them
           echo "Removing existing env vars..."
           ENVS=$(curl -s "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
-            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]? | select(.key == "ANTHROPIC_API_KEY" or .key == "AI_PROVIDER" or .key == "AI_TIMEOUT" or .key == "POSTGRES_URL" or .key == "APIFY_API_KEY") | .id')
+            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]? | select(.key == "ANTHROPIC_API_KEY" or .key == "AI_PROVIDER" or .key == "AI_TIMEOUT" or .key == "POSTGRES_URL" or .key == "APIFY_API_KEY" or .key == "AUTH_SECRET" or .key == "AUTH_RESEND_KEY" or .key == "EMAIL_FROM") | .id')
 
           for ID in $ENVS; do
             curl -s -X DELETE "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env/$ID?teamId=$VERCEL_ORG_ID" \
@@ -133,6 +133,27 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"key\":\"APIFY_API_KEY\",\"value\":\"${{ secrets.APIFY_API_KEY }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}"
 
+          # Add AUTH_SECRET (NextAuth.js session encryption)
+          echo "Adding AUTH_SECRET..."
+          curl -s -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"key\":\"AUTH_SECRET\",\"value\":\"${{ secrets.AUTH_SECRET }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}"
+
+          # Add AUTH_RESEND_KEY (Resend email provider)
+          echo "Adding AUTH_RESEND_KEY..."
+          curl -s -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"key\":\"AUTH_RESEND_KEY\",\"value\":\"${{ secrets.AUTH_RESEND_KEY }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}"
+
+          # Add EMAIL_FROM (Resend sender address)
+          echo "Adding EMAIL_FROM..."
+          curl -s -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"key":"EMAIL_FROM","value":"onboarding@resend.dev","type":"plain","target":["production","preview","development"]}'
+
           # Verify
           echo "Environment variables configured:"
           vercel env ls --token=$VERCEL_TOKEN || true
@@ -146,6 +167,9 @@ jobs:
           AI_PROVIDER: anthropic
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
           APIFY_API_KEY: ${{ secrets.APIFY_API_KEY }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          AUTH_RESEND_KEY: ${{ secrets.AUTH_RESEND_KEY }}
+          EMAIL_FROM: onboarding@resend.dev
         run: vercel build ${{ (github.event_name == 'push' || github.event.inputs.environment == 'production') && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy to Vercel

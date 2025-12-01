@@ -7,15 +7,70 @@ import {
   uniqueIndex,
   index,
   jsonb,
+  primaryKey,
 } from "drizzle-orm/pg-core";
+import type { AdapterAccountType } from "next-auth/adapters";
 
-// Users table
+// ============================================================================
+// NextAuth.js Tables
+// ============================================================================
+
+// Users table (modified for NextAuth.js compatibility)
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // UUID
   email: text("email").unique().notNull(),
   name: text("name"),
+  emailVerified: timestamp("email_verified", { mode: "date" }), // NextAuth.js
+  image: text("image"), // NextAuth.js (for OAuth avatars)
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// Accounts table (for OAuth providers - required by NextAuth.js)
+export const accounts = pgTable(
+  "accounts",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").$type<AdapterAccountType>().notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    refresh_token: text("refresh_token"),
+    access_token: text("access_token"),
+    expires_at: integer("expires_at"),
+    token_type: text("token_type"),
+    scope: text("scope"),
+    id_token: text("id_token"),
+    session_state: text("session_state"),
+  },
+  (account) => [
+    primaryKey({ columns: [account.provider, account.providerAccountId] }),
+  ]
+);
+
+// Sessions table (for database sessions - required by NextAuth.js)
+export const sessions = pgTable("sessions", {
+  sessionToken: text("session_token").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expires: timestamp("expires", { mode: "date" }).notNull(),
+});
+
+// Verification tokens table (REQUIRED for magic link authentication)
+export const verificationTokens = pgTable(
+  "verification_tokens",
+  {
+    identifier: text("identifier").notNull(), // email address
+    token: text("token").notNull(), // hashed token
+    expires: timestamp("expires", { mode: "date" }).notNull(),
+  },
+  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
+);
+
+// ============================================================================
+// Application Tables
+// ============================================================================
 
 // Resume templates table
 export const templates = pgTable("templates", {
@@ -194,3 +249,13 @@ export type NewTemplate = typeof templates.$inferInsert;
 
 export type UserSettingsRecord = typeof userSettings.$inferSelect;
 export type NewUserSettingsRecord = typeof userSettings.$inferInsert;
+
+// NextAuth.js types
+export type Account = typeof accounts.$inferSelect;
+export type NewAccount = typeof accounts.$inferInsert;
+
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+
+export type VerificationToken = typeof verificationTokens.$inferSelect;
+export type NewVerificationToken = typeof verificationTokens.$inferInsert;

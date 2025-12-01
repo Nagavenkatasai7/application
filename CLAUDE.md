@@ -46,6 +46,8 @@ React Components → React Query → API Routes → Drizzle ORM → Vercel Postg
 - `src/lib/linkedin/` - LinkedIn job search via Apify API
 - `src/lib/validations/` - Zod schemas for request/response validation
 - `src/stores/` - Zustand stores for client state (`editor-store`, `survey-store`, `ui-store`)
+- `src/test/factories.ts` - Mock data factories for testing (`createMockUser`, `createMockResume`, etc.)
+- `tests/e2e/` - Playwright E2E tests
 
 ### AI Modules (`src/lib/ai/`)
 
@@ -116,6 +118,8 @@ Uses Apify's `bebity/linkedin-jobs-scraper` actor for job search:
 - E2E tests in `tests/e2e/` directory
 - API route tests use `next-test-api-route-handler`
 - MSW for mocking external API calls
+- Coverage thresholds: 80% minimum on lines, branches, functions, statements
+- Use factories from `src/test/factories.ts` for mock data generation
 
 ### Styling
 

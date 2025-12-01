@@ -45,6 +45,8 @@ export function createMockUser(overrides: UserOverrides = {}): User {
     id: uuidv4(),
     email: `user-${idCounter}@test.com`,
     name: `Test User ${idCounter}`,
+    emailVerified: null,
+    image: null,
     createdAt: new Date(),
     ...overrides,
   };
