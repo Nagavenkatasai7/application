@@ -33,6 +33,9 @@ const AUTH_REDIRECT_ROUTES = ["/", "/login"];
 // Auth API routes (handled by NextAuth)
 const AUTH_API_ROUTES = ["/api/auth"];
 
+// Debug routes (temporary - remove after debugging)
+const DEBUG_ROUTES = ["/api/debug-env"];
+
 // Routes that need stricter rate limiting
 const UPLOAD_ROUTES = ["/api/resumes/upload"];
 const AI_ROUTES = ["/api/resumes/parse", "/api/ai", "/api/modules"];
@@ -53,6 +56,10 @@ function shouldRedirectAuthenticatedUser(pathname: string): boolean {
 
 function isAuthApiRoute(pathname: string): boolean {
   return AUTH_API_ROUTES.some((route) => pathname.startsWith(route));
+}
+
+function isDebugRoute(pathname: string): boolean {
+  return DEBUG_ROUTES.some((route) => pathname.startsWith(route));
 }
 
 function isApiRoute(pathname: string): boolean {
@@ -140,6 +147,11 @@ export default auth(async function middleware(request) {
 
   // Allow NextAuth routes
   if (isAuthApiRoute(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Allow debug routes (temporary - remove after debugging)
+  if (isDebugRoute(pathname)) {
     return NextResponse.next();
   }
 
