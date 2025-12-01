@@ -90,7 +90,7 @@ jobs:
           # Delete existing env vars to recreate them
           echo "Removing existing env vars..."
           ENVS=$(curl -s "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
-            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]? | select(.key == "ANTHROPIC_API_KEY" or .key == "AI_PROVIDER" or .key == "AI_TIMEOUT" or .key == "POSTGRES_URL" or .key == "APIFY_API_KEY" or .key == "AUTH_SECRET" or .key == "AUTH_RESEND_KEY" or .key == "EMAIL_FROM") | .id')
+            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]? | select(.key == "ANTHROPIC_API_KEY" or .key == "AI_PROVIDER" or .key == "AI_TIMEOUT" or .key == "POSTGRES_URL" or .key == "APIFY_API_KEY" or .key == "AUTH_SECRET" or .key == "AUTH_RESEND_KEY" or .key == "EMAIL_FROM" or .key == "AUTH_TRUST_HOST") | .id')
 
           for ID in $ENVS; do
             curl -s -X DELETE "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env/$ID?teamId=$VERCEL_ORG_ID" \
@@ -153,6 +153,13 @@ jobs:
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"key\":\"EMAIL_FROM\",\"value\":\"${{ secrets.EMAIL_FROM }}\",\"type\":\"plain\",\"target\":[\"production\",\"preview\",\"development\"]}"
+
+          # Add AUTH_TRUST_HOST (Required for custom domains with NextAuth.js v5)
+          echo "Adding AUTH_TRUST_HOST..."
+          curl -s -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"key":"AUTH_TRUST_HOST","value":"true","type":"plain","target":["production","preview","development"]}'
 
           # Verify
           echo "Environment variables configured:"
