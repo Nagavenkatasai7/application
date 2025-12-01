@@ -78,13 +78,27 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 }
 
 /**
- * Update user profile.
+ * Update user profile (basic fields).
  */
 export async function updateUser(
   id: string,
   data: Partial<Pick<User, "name" | "email">>
 ): Promise<User | null> {
   await db.update(users).set(data).where(eq(users.id, id));
+  return getUserById(id);
+}
+
+/**
+ * Update user profile (all profile fields).
+ */
+export async function updateUserProfile(
+  id: string,
+  data: Partial<Omit<User, "id" | "email" | "emailVerified" | "createdAt">>
+): Promise<User | null> {
+  await db
+    .update(users)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(users.id, id));
   return getUserById(id);
 }
 

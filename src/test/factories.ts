@@ -49,6 +49,18 @@ export function createMockUser(overrides: UserOverrides = {}): User {
     image: null,
     termsAgreedAt: null,
     createdAt: new Date(),
+    // Profile fields
+    jobTitle: null,
+    experienceLevel: null,
+    skills: [],
+    preferredIndustries: [],
+    city: null,
+    country: null,
+    bio: null,
+    linkedinUrl: null,
+    githubUrl: null,
+    profilePictureUrl: null,
+    updatedAt: new Date(),
     ...overrides,
   };
 }

@@ -15,6 +15,10 @@ import type { AdapterAccountType } from "next-auth/adapters";
 // NextAuth.js Tables
 // ============================================================================
 
+// Experience level enum values for profile
+export const experienceLevels = ["entry", "mid", "senior", "lead", "executive"] as const;
+export type ExperienceLevel = (typeof experienceLevels)[number];
+
 // Users table (modified for NextAuth.js compatibility)
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // UUID
@@ -24,6 +28,25 @@ export const users = pgTable("users", {
   image: text("image"), // NextAuth.js (for OAuth avatars)
   termsAgreedAt: timestamp("terms_agreed_at", { mode: "date" }), // When user accepted terms
   createdAt: timestamp("created_at").notNull().defaultNow(),
+
+  // Professional info
+  jobTitle: text("job_title"),
+  experienceLevel: text("experience_level").$type<ExperienceLevel>(), // entry, mid, senior, lead, executive
+  skills: jsonb("skills").$type<string[]>().default([]),
+  preferredIndustries: jsonb("preferred_industries").$type<string[]>().default([]),
+
+  // Extended info
+  city: text("city"),
+  country: text("country"),
+  bio: text("bio"),
+  linkedinUrl: text("linkedin_url"),
+  githubUrl: text("github_url"),
+
+  // Profile picture (Vercel Blob URL)
+  profilePictureUrl: text("profile_picture_url"),
+
+  // Updated timestamp
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Accounts table (for OAuth providers - required by NextAuth.js)
