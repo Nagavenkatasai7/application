@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Make env vars available at runtime
+  // These are read from the environment at build time and embedded
+  env: {
+    AUTH_SECRET: process.env.AUTH_SECRET,
+    AUTH_RESEND_KEY: process.env.AUTH_RESEND_KEY,
+    AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST,
+    EMAIL_FROM: process.env.EMAIL_FROM,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    AI_PROVIDER: process.env.AI_PROVIDER,
+    AI_TIMEOUT: process.env.AI_TIMEOUT,
+    APIFY_API_KEY: process.env.APIFY_API_KEY,
+  },
+
   // Enable production optimizations
   reactStrictMode: true,
 
