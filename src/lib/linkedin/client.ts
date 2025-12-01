@@ -127,9 +127,10 @@ function buildActorInput(params: LinkedInSearchParams): Record<string, unknown> 
     "1m": "r2592000",    // 30 days = 2,592,000 seconds
   };
 
-  // Build experience level filter string (comma-separated values like "1,2")
-  const experienceLevelFilter = experienceLevels
-    ? experienceLevels.map((level: ExperienceLevel) => EXPERIENCE_LEVEL_OPTIONS[level].value).join(",")
+  // Build experience level filter - Apify only accepts a single value ("1", "2", etc.)
+  // If multiple levels are selected, use the first one (lowest/most entry-level)
+  const experienceLevelFilter = experienceLevels && experienceLevels.length > 0
+    ? EXPERIENCE_LEVEL_OPTIONS[experienceLevels[0]].value
     : "";
 
   return {

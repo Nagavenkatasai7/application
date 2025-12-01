@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -29,7 +29,6 @@ import { LinkedInJobResultCard } from "@/components/jobs/linkedin-job-result-car
 import {
   TIME_FRAME_OPTIONS,
   EXPERIENCE_LEVEL_OPTIONS,
-  DEFAULT_EXPERIENCE_LEVELS,
   type LinkedInJobResult,
   type TimeFrame,
   type ExperienceLevel,
@@ -59,7 +58,8 @@ const entryLevelSearchSchema = z.object({
     .optional()
     .transform((val) => (val === "" ? undefined : val)),
   timeFrame: z.enum(["1h", "24h", "1w", "1m"] as const),
-  experienceLevels: z.array(z.enum(["internship", "entry_level", "associate"] as const)).min(1, "Select at least one experience level"),
+  // Single experience level - Apify only accepts one value
+  experienceLevel: z.enum(["internship", "entry_level", "associate"] as const),
   limit: z.coerce.number().min(1).max(25).optional(),
 });
 
@@ -96,21 +96,26 @@ export default function EntryLevelSearchPage() {
       keywords: "",
       location: "",
       timeFrame: "24h",
-      experienceLevels: DEFAULT_EXPERIENCE_LEVELS,
+      experienceLevel: "internship", // Default to internship for freshers
       limit: 25,
     },
   });
 
   // Watch form values for controlled components
-  const selectedExperienceLevels = form.watch("experienceLevels");
+  const selectedExperienceLevel = form.watch("experienceLevel");
 
   // Search mutation
   const searchMutation = useMutation({
     mutationFn: async (data: EntryLevelSearchInput) => {
+      // Convert single experienceLevel to array for API
+      const apiData = {
+        ...data,
+        experienceLevels: [data.experienceLevel],
+      };
       const response = await fetch("/api/linkedin/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(apiData),
       });
 
       const result = await response.json();
@@ -182,21 +187,6 @@ export default function EntryLevelSearchPage() {
     form.setValue("keywords", keyword);
   };
 
-  const toggleExperienceLevel = (level: ExperienceLevel) => {
-    const current = selectedExperienceLevels || [];
-    if (current.includes(level)) {
-      // Only remove if there's more than one selected
-      if (current.length > 1) {
-        form.setValue(
-          "experienceLevels",
-          current.filter((l) => l !== level)
-        );
-      }
-    } else {
-      form.setValue("experienceLevels", [...current, level]);
-    }
-  };
-
   return (
     <PageTransition>
       <div className="space-y-6">
@@ -262,23 +252,24 @@ export default function EntryLevelSearchPage() {
                   {/* Experience Level Selection */}
                   <div className="space-y-2">
                     <Label>Experience Level</Label>
-                    <div className="flex flex-wrap gap-2">
+                    <RadioGroup
+                      value={selectedExperienceLevel}
+                      onValueChange={(value) => form.setValue("experienceLevel", value as ExperienceLevel)}
+                      disabled={searchMutation.isPending}
+                      className="flex flex-wrap gap-2"
+                    >
                       {(Object.entries(EXPERIENCE_LEVEL_OPTIONS) as [ExperienceLevel, { label: string; description: string }][]).map(
                         ([level, { label, description }]) => (
                           <div
                             key={level}
                             className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
-                              selectedExperienceLevels?.includes(level)
+                              selectedExperienceLevel === level
                                 ? "border-primary bg-primary/5"
                                 : "border-border hover:border-primary/50"
                             }`}
-                            onClick={() => toggleExperienceLevel(level)}
+                            onClick={() => form.setValue("experienceLevel", level)}
                           >
-                            <Checkbox
-                              checked={selectedExperienceLevels?.includes(level)}
-                              onCheckedChange={() => toggleExperienceLevel(level)}
-                              disabled={searchMutation.isPending}
-                            />
+                            <RadioGroupItem value={level} id={level} />
                             <div>
                               <p className="text-sm font-medium">{label}</p>
                               <p className="text-xs text-muted-foreground">{description}</p>
@@ -286,10 +277,10 @@ export default function EntryLevelSearchPage() {
                           </div>
                         )
                       )}
-                    </div>
-                    {form.formState.errors.experienceLevels && (
+                    </RadioGroup>
+                    {form.formState.errors.experienceLevel && (
                       <p className="text-xs text-destructive">
-                        {form.formState.errors.experienceLevels.message}
+                        {form.formState.errors.experienceLevel.message}
                       </p>
                     )}
                   </div>
