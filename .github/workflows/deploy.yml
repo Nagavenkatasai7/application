@@ -185,8 +185,21 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          # Deploy directly to Vercel (not prebuilt) to pick up runtime env vars
-          URL=$(vercel deploy ${{ (github.event_name == 'push' || github.event.inputs.environment == 'production') && '--prod' || '' }} --token=$VERCEL_TOKEN --yes)
+          # Deploy with --env flags to ensure env vars are available at runtime
+          # This bypasses the REST API propagation issue
+          URL=$(vercel deploy \
+            ${{ (github.event_name == 'push' || github.event.inputs.environment == 'production') && '--prod' || '' }} \
+            --token=$VERCEL_TOKEN \
+            --yes \
+            --env AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
+            --env AUTH_RESEND_KEY="${{ secrets.AUTH_RESEND_KEY }}" \
+            --env AUTH_TRUST_HOST="true" \
+            --env EMAIL_FROM="${{ secrets.EMAIL_FROM }}" \
+            --env ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" \
+            --env AI_PROVIDER="anthropic" \
+            --env AI_TIMEOUT="180000" \
+            --env APIFY_API_KEY="${{ secrets.APIFY_API_KEY }}" \
+            --env POSTGRES_URL="${{ secrets.POSTGRES_URL }}")
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Deployed to: $URL"
 
