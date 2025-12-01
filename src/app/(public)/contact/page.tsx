@@ -7,6 +7,7 @@
 
 import { FadeInView, StaggerContainer, StaggerItem } from "@/components/animations";
 import { Mail, Clock, MapPin, Shield } from "lucide-react";
+import Link from "next/link";
 
 export const metadata = {
   title: "Contact Us | Resume Tailor",
@@ -186,24 +187,24 @@ export default function ContactPage() {
             <p>You might find your answer faster by checking:</p>
             <ul className="list-disc pl-6 space-y-2">
               <li>
-                <a href="/#faq" className="text-primary hover:underline">
+                <Link href="/#faq" className="text-primary hover:underline">
                   Frequently Asked Questions
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/terms" className="text-primary hover:underline">
+                <Link href="/terms" className="text-primary hover:underline">
                   Terms of Service
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/privacy" className="text-primary hover:underline">
+                <Link href="/privacy" className="text-primary hover:underline">
                   Privacy Policy
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/refunds" className="text-primary hover:underline">
+                <Link href="/refunds" className="text-primary hover:underline">
                   Cancellation & Refunds Policy
-                </a>
+                </Link>
               </li>
             </ul>
           </section>
