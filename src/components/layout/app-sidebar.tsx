@@ -25,6 +25,7 @@ import {
   FileText,
   Settings,
   FileUp,
+  GraduationCap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -71,6 +72,11 @@ const navigation = {
     },
   ],
   management: [
+    {
+      title: "Job Search",
+      url: "/search",
+      icon: GraduationCap,
+    },
     {
       title: "Jobs",
       url: "/jobs",

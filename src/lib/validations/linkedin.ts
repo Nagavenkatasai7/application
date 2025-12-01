@@ -3,7 +3,7 @@
  */
 
 import { z } from "zod";
-import { TIME_FRAME_OPTIONS, type TimeFrame } from "@/lib/linkedin/types";
+import { TIME_FRAME_OPTIONS, type TimeFrame, type ExperienceLevel } from "@/lib/linkedin/types";
 
 // =============================================================================
 // SEARCH REQUEST SCHEMA
@@ -30,6 +30,11 @@ export const linkedInSearchSchema = z.object({
     .number()
     .min(1)
     .max(25) // Apify LinkedIn scraper max is 25
+    .optional(),
+
+  // Experience level filters: internship, entry_level, associate
+  experienceLevels: z
+    .array(z.enum(["internship", "entry_level", "associate"] as const))
     .optional(),
 });
 

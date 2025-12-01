@@ -28,6 +28,42 @@ export const TIME_FRAME_OPTIONS: Record<
 export const DEFAULT_TIME_FRAME: TimeFrame = "1h";
 
 // =============================================================================
+// EXPERIENCE LEVEL OPTIONS
+// =============================================================================
+
+// LinkedIn experience level filters (f_E parameter):
+// - 1 = Internship
+// - 2 = Entry level
+// - 3 = Associate
+// - 4 = Mid-Senior level
+// - 5 = Director
+// - 6 = Executive
+export type ExperienceLevel = "internship" | "entry_level" | "associate";
+
+export const EXPERIENCE_LEVEL_OPTIONS: Record<
+  ExperienceLevel,
+  { label: string; value: string; description: string }
+> = {
+  internship: {
+    label: "Internship",
+    value: "1",
+    description: "For students and recent graduates seeking internship opportunities"
+  },
+  entry_level: {
+    label: "Entry Level",
+    value: "2",
+    description: "For freshers with 0-2 years of experience"
+  },
+  associate: {
+    label: "Associate",
+    value: "3",
+    description: "For professionals with 2-5 years of experience"
+  },
+};
+
+export const DEFAULT_EXPERIENCE_LEVELS: ExperienceLevel[] = ["internship", "entry_level"];
+
+// =============================================================================
 // SEARCH PARAMETERS
 // =============================================================================
 
@@ -36,6 +72,7 @@ export interface LinkedInSearchParams {
   location?: string;
   timeFrame: TimeFrame;
   limit?: number;
+  experienceLevels?: ExperienceLevel[];
 }
 
 // =============================================================================

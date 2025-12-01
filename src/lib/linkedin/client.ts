@@ -9,7 +9,9 @@ import type {
   LinkedInSearchParams,
   ApifyRunResponse,
   ApifyLinkedInJob,
+  ExperienceLevel,
 } from "./types";
+import { EXPERIENCE_LEVEL_OPTIONS } from "./types";
 
 // =============================================================================
 // CONSTANTS
@@ -110,10 +112,11 @@ async function startActorRun(
  * - location: Location filter
  * - publishedAt: Time filter (empty string or date range)
  * - rows: Number of results to return
+ * - experienceLevel: Experience level filter (comma-separated values)
  * - proxy: Proxy configuration with RESIDENTIAL group
  */
 function buildActorInput(params: LinkedInSearchParams): Record<string, unknown> {
-  const { keywords, location, timeFrame, limit = 25 } = params;
+  const { keywords, location, timeFrame, limit = 25, experienceLevels } = params;
 
   // Map our timeFrame to LinkedIn's f_TPR parameter format (seconds)
   // LinkedIn uses: r3600 (1h), r86400 (24h), r604800 (week), r2592000 (month)
@@ -124,6 +127,11 @@ function buildActorInput(params: LinkedInSearchParams): Record<string, unknown> 
     "1m": "r2592000",    // 30 days = 2,592,000 seconds
   };
 
+  // Build experience level filter string (comma-separated values like "1,2")
+  const experienceLevelFilter = experienceLevels
+    ? experienceLevels.map((level: ExperienceLevel) => EXPERIENCE_LEVEL_OPTIONS[level].value).join(",")
+    : "";
+
   return {
     // Job title search term
     title: keywords,
@@ -133,6 +141,8 @@ function buildActorInput(params: LinkedInSearchParams): Record<string, unknown> 
     publishedAt: timeFilterMap[timeFrame] || "r86400",
     // Number of results (Apify max is 25)
     rows: Math.min(limit, 25),
+    // Experience level filter (1=Internship, 2=Entry Level, 3=Associate)
+    experienceLevel: experienceLevelFilter,
     // Proxy configuration - let Apify use default proxy
     proxy: {
       useApifyProxy: true,
