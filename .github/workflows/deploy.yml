@@ -152,7 +152,7 @@ jobs:
           curl -s -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"key":"EMAIL_FROM","value":"onboarding@resend.dev","type":"plain","target":["production","preview","development"]}'
+            -d "{\"key\":\"EMAIL_FROM\",\"value\":\"${{ secrets.EMAIL_FROM }}\",\"type\":\"plain\",\"target\":[\"production\",\"preview\",\"development\"]}"
 
           # Verify
           echo "Environment variables configured:"
@@ -169,7 +169,7 @@ jobs:
           APIFY_API_KEY: ${{ secrets.APIFY_API_KEY }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
           AUTH_RESEND_KEY: ${{ secrets.AUTH_RESEND_KEY }}
-          EMAIL_FROM: onboarding@resend.dev
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
         run: vercel build ${{ (github.event_name == 'push' || github.event.inputs.environment == 'production') && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy to Vercel
