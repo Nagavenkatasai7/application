@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Loader2, AlertCircle, Sparkles } from "lucide-react";
 import Link from "next/link";
 
@@ -26,6 +27,7 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const searchParams = useSearchParams();
 
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
@@ -116,7 +118,36 @@ function LoginForm() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          {/* Terms Consent Checkbox */}
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="terms-consent"
+              checked={termsAccepted}
+              onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+              disabled={isLoading}
+              className="mt-0.5"
+            />
+            <label
+              htmlFor="terms-consent"
+              className="text-sm text-muted-foreground leading-relaxed cursor-pointer"
+            >
+              I agree to the{" "}
+              <Link href="/terms" className="text-primary underline hover:text-primary/80">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-primary underline hover:text-primary/80">
+                Privacy Policy
+              </Link>
+              , and I understand that AI-generated content is provided as suggestions only.
+            </label>
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isLoading || !termsAccepted}
+          >
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -130,20 +161,6 @@ function LoginForm() {
             )}
           </Button>
         </form>
-
-        <div className="text-center text-sm text-muted-foreground">
-          <p>
-            By signing in, you agree to our{" "}
-            <Link href="/terms" className="underline hover:text-foreground">
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link href="/privacy" className="underline hover:text-foreground">
-              Privacy Policy
-            </Link>
-            .
-          </p>
-        </div>
       </CardContent>
     </Card>
   );

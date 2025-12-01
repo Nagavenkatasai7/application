@@ -22,6 +22,7 @@ export const users = pgTable("users", {
   name: text("name"),
   emailVerified: timestamp("email_verified", { mode: "date" }), // NextAuth.js
   image: text("image"), // NextAuth.js (for OAuth avatars)
+  termsAgreedAt: timestamp("terms_agreed_at", { mode: "date" }), // When user accepted terms
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -47,6 +47,7 @@ export function createMockUser(overrides: UserOverrides = {}): User {
     name: `Test User ${idCounter}`,
     emailVerified: null,
     image: null,
+    termsAgreedAt: null,
     createdAt: new Date(),
     ...overrides,
   };
