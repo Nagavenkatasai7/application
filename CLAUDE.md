@@ -34,26 +34,24 @@ The Resume Tailoring Application is an AI-powered local-first desktop applicatio
 - ✅ Settings page
 - ✅ 5 AI module pages (Uniqueness, Impact, Context, Soft Skills, Company)
 
-### What's MISSING (Key Gap: Resume Tailoring UI)
+### Recently Implemented: Resume Tailoring UI
 
-**The "Resume Generation Based on Job Role" Feature:**
+**The "Resume Generation Based on Job Role" Feature (UC3):**
+1. ✅ User selects a resume and navigates to `/resumes/[id]/tailor`
+2. ✅ User selects target job from dropdown
+3. ✅ System runs AI tailoring via Claude API
+4. ✅ System shows side-by-side comparison (original vs tailored)
+5. ✅ User can Save as New Resume or Download PDF
+6. ✅ Changes summary shows what was modified
 
-The core workflow you're looking for is **UC3: Generate Tailored Resume** from the Analysis doc:
-1. User selects a resume and a job
-2. System runs Context Alignment (semantic matching)
-3. System generates optimized content via Claude API
-4. System shows side-by-side comparison
-5. User accepts/modifies suggestions
-6. System generates ATS-compliant PDF
+**Implemented UI Components:**
+- ✅ Resume tailoring workflow page (`/resumes/[id]/tailor`)
+- ✅ Split-pane comparison view (`resume-comparison.tsx`)
+- ✅ Job selector dropdown (`job-selector.tsx`)
+- ✅ Changes summary card (`changes-summary.tsx`)
+- ✅ Tailor actions (save/download/discard) (`tailor-actions.tsx`)
 
-**Missing UI Components:**
-- ❌ Resume tailoring workflow page (`/resumes/[id]/tailor`)
-- ❌ Split-pane comparison view (original vs tailored)
-- ❌ Accept/reject/modify suggestions interface
-- ❌ PDF preview component
-- ❌ Job selection for resume tailoring
-
-**Other Missing Features:**
+**Remaining Missing Features:**
 - ❌ Job scraping integration (Apify actors for LinkedIn, Indeed, etc.)
 - ❌ PDF generation via Puppeteer (only API stub exists)
 - ❌ GLiNER NER model for skill extraction from jobs

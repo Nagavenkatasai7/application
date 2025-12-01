@@ -150,4 +150,114 @@ describe("EducationSection", () => {
       expect(screen.getByDisplayValue("MIT")).toBeInTheDocument();
     });
   });
+
+  describe("additional field updates", () => {
+    it("should call onChange when field is updated", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const edu = createMockEducation();
+      render(<EducationSection education={[edu]} onChange={onChange} />);
+
+      const fieldInput = screen.getByDisplayValue(edu.field);
+      await user.type(fieldInput, " Engineering");
+
+      expect(onChange).toHaveBeenCalled();
+      const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+      expect(lastCall[0].field).toContain("Computer Science");
+    });
+
+    it("should call onChange when graduationDate is updated", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const edu = createMockEducation();
+      render(<EducationSection education={[edu]} onChange={onChange} />);
+
+      const graduationInput = screen.getByDisplayValue(edu.graduationDate);
+      await user.type(graduationInput, " 2021");
+
+      expect(onChange).toHaveBeenCalled();
+      const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+      expect(lastCall[0].graduationDate).toContain("May 2020");
+    });
+
+    it("should call onChange when gpa is updated", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const edu = createMockEducation();
+      render(<EducationSection education={[edu]} onChange={onChange} />);
+
+      const gpaInput = screen.getByDisplayValue(edu.gpa!);
+      await user.type(gpaInput, " GPA");
+
+      expect(onChange).toHaveBeenCalled();
+      const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+      expect(lastCall[0].gpa).toContain("3.8/4.0");
+    });
+  });
+
+  describe("optional fields handling", () => {
+    it("should handle education without gpa (undefined)", () => {
+      const onChange = vi.fn();
+      const edu = { ...createMockEducation(), gpa: undefined };
+      render(<EducationSection education={[edu]} onChange={onChange} />);
+
+      // GPA input should have empty value
+      const gpaInput = screen.getByPlaceholderText("3.8/4.0");
+      expect(gpaInput).toHaveValue("");
+    });
+
+    it("should handle education with empty string gpa", () => {
+      const onChange = vi.fn();
+      const edu = { ...createMockEducation(), gpa: "" };
+      render(<EducationSection education={[edu]} onChange={onChange} />);
+
+      const gpaInput = screen.getByPlaceholderText("3.8/4.0");
+      expect(gpaInput).toHaveValue("");
+    });
+
+    it("should disable remove button when disabled", () => {
+      const onChange = vi.fn();
+      const edu = createMockEducation();
+      render(<EducationSection education={[edu]} onChange={onChange} disabled />);
+
+      expect(screen.getByRole("button", { name: /remove education/i })).toBeDisabled();
+    });
+
+    it("should disable gpa input when disabled", () => {
+      const onChange = vi.fn();
+      const edu = createMockEducation();
+      render(<EducationSection education={[edu]} onChange={onChange} disabled />);
+
+      expect(screen.getByDisplayValue(edu.gpa!)).toBeDisabled();
+    });
+
+    it("should disable graduation date input when disabled", () => {
+      const onChange = vi.fn();
+      const edu = createMockEducation();
+      render(<EducationSection education={[edu]} onChange={onChange} disabled />);
+
+      expect(screen.getByDisplayValue(edu.graduationDate)).toBeDisabled();
+    });
+  });
+
+  describe("updateEducation preserves other entries", () => {
+    it("should only update the targeted education entry", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const edu1 = createMockEducation();
+      const edu2 = { ...createMockEducation(), id: "edu-2", institution: "MIT" };
+      render(<EducationSection education={[edu1, edu2]} onChange={onChange} />);
+
+      // Update the first education's institution
+      const stanfordInput = screen.getByDisplayValue("Stanford University");
+      await user.type(stanfordInput, " Modified");
+
+      expect(onChange).toHaveBeenCalled();
+      const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+      // First entry should be updated
+      expect(lastCall[0].institution).toContain("Stanford University");
+      // Second entry should be unchanged
+      expect(lastCall[1].institution).toBe("MIT");
+    });
+  });
 });

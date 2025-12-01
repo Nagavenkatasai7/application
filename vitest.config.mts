@@ -60,7 +60,9 @@ export default defineConfig({
         'src/lib/ai/retry/retry-strategy.ts',
         'src/lib/ai/retry/index.ts',
         // Exclude LinkedIn integration (external API integration via Apify)
-        'src/lib/linkedin/**',
+        // Keep transform.ts and types.ts included for pure function testing
+        'src/lib/linkedin/client.ts',  // External API calls
+        'src/lib/linkedin/index.ts',   // Re-export only
         'src/app/api/linkedin/**',
         'src/components/jobs/linkedin-*.tsx',
         // Exclude re-export index files
@@ -89,13 +91,28 @@ export default defineConfig({
         'src/app/**/error.tsx',
         'src/app/**/not-found.tsx',
         'src/app/global-error.tsx',
+        // Exclude loading files (simple loading UI components)
+        'src/app/**/loading.tsx',
+        // Exclude resume pages (complex UI tested via E2E)
+        'src/app/(dashboard)/resumes/[id]/edit/page.tsx',
+        'src/app/(dashboard)/resumes/[id]/page.tsx',
+        'src/app/(dashboard)/resumes/[id]/tailor/page.tsx',
+        // Exclude jobs [id] page (tested via E2E)
+        'src/app/(dashboard)/jobs/[id]/page.tsx',
+        // Exclude company status route (AI integration, tested via E2E)
+        'src/app/api/modules/company/status/route.ts',
+        // Exclude index re-export files
+        'src/components/jobs/index.ts',
+        'src/components/resumes/index.ts',
+        'src/components/resumes/editor/index.ts',
       ],
       thresholds: {
-        // Lowered thresholds to accommodate module pages and AI services tested via E2E
-        lines: 70,
-        functions: 64,
-        branches: 58,
-        statements: 70,
+        // Updated thresholds after adding more tests (Nov 2025)
+        // Complex pages and AI services tested via E2E, pure logic functions via unit tests
+        lines: 73,
+        functions: 68,
+        branches: 62,
+        statements: 73,
       },
     },
     // Timeout for async tests

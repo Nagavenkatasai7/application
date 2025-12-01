@@ -154,4 +154,130 @@ describe("ExperienceSection", () => {
       expect(screen.getByDisplayValue("Tech Corp")).toBeInTheDocument();
     });
   });
+
+  describe("bullet operations", () => {
+    it("should call onChange when bullet text is updated", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const exp = createMockExperience();
+      render(<ExperienceSection experiences={[exp]} onChange={onChange} />);
+
+      const bulletTextarea = screen.getByDisplayValue(exp.bullets[0].text);
+      // Type additional text to trigger onChange
+      await user.type(bulletTextarea, " - updated");
+
+      expect(onChange).toHaveBeenCalled();
+      const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+      expect(lastCall[0].bullets[0].text).toContain("Built scalable microservices");
+    });
+
+    it("should remove bullet when Remove Bullet is clicked", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const exp = createMockExperience(); // Has 2 bullets
+      render(<ExperienceSection experiences={[exp]} onChange={onChange} />);
+
+      const removeButtons = screen.getAllByRole("button", { name: /remove bullet/i });
+      expect(removeButtons).toHaveLength(2); // Should have 2 remove buttons for 2 bullets
+      await user.click(removeButtons[0]);
+
+      expect(onChange).toHaveBeenCalled();
+      const newExperiences = onChange.mock.calls[0][0];
+      expect(newExperiences[0].bullets).toHaveLength(1);
+    });
+
+    it("should not show remove bullet button when only one bullet exists", () => {
+      const onChange = vi.fn();
+      const exp = {
+        ...createMockExperience(),
+        bullets: [{ id: "bullet-1", text: "Only bullet" }],
+      };
+      render(<ExperienceSection experiences={[exp]} onChange={onChange} />);
+
+      expect(screen.queryByRole("button", { name: /remove bullet/i })).not.toBeInTheDocument();
+    });
+
+    it("should show remove bullet buttons when multiple bullets exist", () => {
+      const onChange = vi.fn();
+      const exp = createMockExperience(); // Has 2 bullets
+      render(<ExperienceSection experiences={[exp]} onChange={onChange} />);
+
+      const removeButtons = screen.getAllByRole("button", { name: /remove bullet/i });
+      expect(removeButtons).toHaveLength(2);
+    });
+  });
+
+  describe("optional fields handling", () => {
+    it("should handle experience without location", () => {
+      const onChange = vi.fn();
+      const exp = { ...createMockExperience(), location: undefined };
+      render(<ExperienceSection experiences={[exp]} onChange={onChange} />);
+
+      const locationInput = screen.getByPlaceholderText("San Francisco, CA");
+      expect(locationInput).toHaveValue("");
+    });
+
+    it("should handle experience without endDate", () => {
+      const onChange = vi.fn();
+      const exp = { ...createMockExperience(), endDate: undefined };
+      render(<ExperienceSection experiences={[exp]} onChange={onChange} />);
+
+      const endDateInput = screen.getByPlaceholderText("Present");
+      expect(endDateInput).toHaveValue("");
+    });
+
+    it("should update location field", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const exp = createMockExperience();
+      render(<ExperienceSection experiences={[exp]} onChange={onChange} />);
+
+      const locationInput = screen.getByDisplayValue(exp.location!);
+      await user.clear(locationInput);
+      await user.type(locationInput, "New York, NY");
+
+      expect(onChange).toHaveBeenCalled();
+    });
+
+    it("should update company field", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const exp = createMockExperience();
+      render(<ExperienceSection experiences={[exp]} onChange={onChange} />);
+
+      const companyInput = screen.getByDisplayValue(exp.company);
+      // Type additional text to trigger onChange
+      await user.type(companyInput, " Corp");
+
+      expect(onChange).toHaveBeenCalled();
+      const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+      expect(lastCall[0].company).toContain("Acme Inc.");
+    });
+
+    it("should update startDate field", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const exp = createMockExperience();
+      render(<ExperienceSection experiences={[exp]} onChange={onChange} />);
+
+      const startDateInput = screen.getByDisplayValue(exp.startDate);
+      await user.clear(startDateInput);
+      await user.type(startDateInput, "Feb 2021");
+
+      expect(onChange).toHaveBeenCalled();
+    });
+
+    it("should update endDate field", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const exp = createMockExperience();
+      render(<ExperienceSection experiences={[exp]} onChange={onChange} />);
+
+      const endDateInput = screen.getByDisplayValue(exp.endDate!);
+      await user.clear(endDateInput);
+      await user.type(endDateInput, "Dec 2023");
+
+      expect(onChange).toHaveBeenCalled();
+    });
+  });
 });

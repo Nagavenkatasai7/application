@@ -23,12 +23,13 @@ export const linkedInSearchSchema = z.object({
     .optional()
     .transform((val) => (val === "" ? undefined : val)),
 
-  timeFrame: z.enum(["1h", "24h", "3d", "1w", "1m"] as const),
+  // Apify only supports: 24h, 1w, 1m (no hourly option)
+  timeFrame: z.enum(["24h", "1w", "1m"] as const),
 
   limit: z.coerce
     .number()
     .min(1)
-    .max(50)
+    .max(25) // Apify LinkedIn scraper max is 25
     .optional(),
 });
 
@@ -69,7 +70,8 @@ export const linkedInSearchResponseSchema = z.object({
       searchParams: z.object({
         keywords: z.string(),
         location: z.string().nullable(),
-        timeFrame: z.enum(["1h", "24h", "3d", "1w", "1m"] as const),
+        // Apify only supports: 24h, 1w, 1m (no hourly option)
+  timeFrame: z.enum(["24h", "1w", "1m"] as const),
       }),
     })
     .optional(),

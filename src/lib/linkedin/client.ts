@@ -74,6 +74,9 @@ async function startActorRun(
   // Build actor input based on search params
   const input = buildActorInput(params);
 
+  // Log input for debugging
+  console.log("[Apify] Starting actor run with input:", JSON.stringify(input, null, 2));
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -85,11 +88,18 @@ async function startActorRun(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("Apify API error:", errorText);
-    throw new Error(`Failed to start LinkedIn search: ${response.status}`);
+    console.error("[Apify] API error response:", {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorText,
+      url,
+    });
+    throw new Error(`Apify API error (${response.status}): ${errorText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  console.log("[Apify] Actor run started:", result.data?.id);
+  return result;
 }
 
 /**
@@ -105,14 +115,12 @@ async function startActorRun(
 function buildActorInput(params: LinkedInSearchParams): Record<string, unknown> {
   const { keywords, location, timeFrame, limit = 25 } = params;
 
-  // Map our timeFrame to LinkedIn's datePosted filter format
-  // LinkedIn uses: past-24h, past-week, past-month, any-time
+  // Map our timeFrame to Apify LinkedIn actor's publishedAt format
+  // Apify only supports: r86400 (24h), r604800 (week), r2592000 (month)
   const timeFilterMap: Record<string, string> = {
-    "1h": "past-24h",      // LinkedIn doesn't have 1h, use 24h
-    "24h": "past-24h",
-    "3d": "past-week",     // LinkedIn doesn't have 3d, use past-week
-    "1w": "past-week",
-    "1m": "past-month",
+    "24h": "r86400",     // 24 hours = 86,400 seconds
+    "1w": "r604800",     // 7 days = 604,800 seconds
+    "1m": "r2592000",    // 30 days = 2,592,000 seconds
   };
 
   return {
@@ -121,13 +129,12 @@ function buildActorInput(params: LinkedInSearchParams): Record<string, unknown> 
     // Location filter
     location: location || "",
     // Time filter - LinkedIn datePosted format
-    publishedAt: timeFilterMap[timeFrame] || "past-24h",
-    // Number of results
-    rows: Math.min(limit, 50),
-    // Proxy configuration - RESIDENTIAL for better reliability
+    publishedAt: timeFilterMap[timeFrame] || "r86400",
+    // Number of results (Apify max is 25)
+    rows: Math.min(limit, 25),
+    // Proxy configuration - let Apify use default proxy
     proxy: {
       useApifyProxy: true,
-      apifyProxyGroups: ["RESIDENTIAL"],
     },
   };
 }

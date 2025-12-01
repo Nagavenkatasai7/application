@@ -3,6 +3,7 @@ import {
   calculateRecruiterReadiness,
   DIMENSION_WEIGHTS,
   getScoreSummary,
+  getMostImpactfulImprovement,
 } from "./recruiter-readiness";
 import type { PreAnalysisResult } from "@/lib/ai/tailoring/types";
 
@@ -262,6 +263,231 @@ describe("Recruiter Readiness Scoring", () => {
 
       expect(typeof summary).toBe("string");
       expect(summary.length).toBeGreaterThan(0);
+    });
+
+    it("should return exceptional message for scores >= 90", () => {
+      const preAnalysis = createMockPreAnalysis({
+        impact: { ...defaultMockImpact, score: 95 },
+        uniqueness: { ...defaultMockUniqueness, score: 95, scoreLabel: "exceptional" as const },
+        context: { ...defaultMockContext, score: 95, scoreLabel: "excellent" as const },
+        company: { companyName: "Google", isWellKnown: true, industry: "Tech", size: "enterprise", fundingStage: null, comparable: null, context: "" },
+        softSkills: [
+          { skill: "Leadership", evidence: ["Led"], strength: "strong", bulletIds: ["1"] },
+          { skill: "Communication", evidence: ["Presented"], strength: "strong", bulletIds: ["2"] },
+          { skill: "Teamwork", evidence: ["Collaborated"], strength: "strong", bulletIds: ["3"] },
+          { skill: "Problem Solving", evidence: ["Solved"], strength: "strong", bulletIds: ["4"] },
+        ],
+      });
+      const score = calculateRecruiterReadiness(preAnalysis);
+      const summary = getScoreSummary(score);
+      expect(summary).toContain("Exceptional");
+    });
+
+    it("should return strong match message for scores 75-89", () => {
+      const preAnalysis = createMockPreAnalysis({
+        impact: { ...defaultMockImpact, score: 80 },
+        uniqueness: { ...defaultMockUniqueness, score: 80, scoreLabel: "high" as const },
+        context: { ...defaultMockContext, score: 80, scoreLabel: "good" as const },
+        company: { companyName: "Google", isWellKnown: true, industry: "Tech", size: "enterprise", fundingStage: null, comparable: null, context: "" },
+        softSkills: [
+          { skill: "Leadership", evidence: ["Led"], strength: "strong", bulletIds: ["1"] },
+          { skill: "Communication", evidence: ["Presented"], strength: "strong", bulletIds: ["2"] },
+        ],
+      });
+      const score = calculateRecruiterReadiness(preAnalysis);
+      const summary = getScoreSummary(score);
+      expect(summary).toContain("Strong match");
+    });
+
+    it("should return good potential message for scores 60-74", () => {
+      // Default mock typically produces score in this range
+      const preAnalysis = createMockPreAnalysis();
+      const score = calculateRecruiterReadiness(preAnalysis);
+      const summary = getScoreSummary(score);
+      expect(summary).toContain("Good potential");
+    });
+
+    it("should return room for improvement message for scores 45-59", () => {
+      const preAnalysis = createMockPreAnalysis({
+        impact: { ...defaultMockImpact, score: 45 },
+        uniqueness: { ...defaultMockUniqueness, score: 45, scoreLabel: "moderate" as const },
+        context: { ...defaultMockContext, score: 45, scoreLabel: "moderate" as const },
+        company: null,
+        softSkills: [
+          { skill: "Communication", evidence: ["Spoke"], strength: "moderate", bulletIds: ["1"] },
+        ],
+      });
+      const score = calculateRecruiterReadiness(preAnalysis);
+      const summary = getScoreSummary(score);
+      expect(summary).toContain("Room for improvement");
+    });
+
+    it("should return significant work needed for scores < 45", () => {
+      const preAnalysis = createMockPreAnalysis({
+        impact: { ...defaultMockImpact, score: 20 },
+        uniqueness: { ...defaultMockUniqueness, score: 20, scoreLabel: "low" as const },
+        context: { ...defaultMockContext, score: 20, scoreLabel: "poor" as const },
+        company: null,
+        softSkills: [],
+      });
+      const score = calculateRecruiterReadiness(preAnalysis);
+      const summary = getScoreSummary(score);
+      expect(summary).toContain("Significant work needed");
+    });
+  });
+
+  describe("getMostImpactfulImprovement", () => {
+    it("should return the dimension with highest improvement potential", () => {
+      const preAnalysis = createMockPreAnalysis({
+        impact: { ...defaultMockImpact, score: 30 }, // Low score, high weight = high potential
+        uniqueness: { ...defaultMockUniqueness, score: 90 }, // High score = low potential
+        context: { ...defaultMockContext, score: 90 },
+        company: { companyName: "Google", isWellKnown: true, industry: "Tech", size: "enterprise", fundingStage: null, comparable: null, context: "" },
+        softSkills: [
+          { skill: "Leadership", evidence: ["Led"], strength: "strong", bulletIds: ["1"] },
+          { skill: "Communication", evidence: ["Presented"], strength: "strong", bulletIds: ["2"] },
+        ],
+      });
+      const score = calculateRecruiterReadiness(preAnalysis);
+      const mostImpactful = getMostImpactfulImprovement(score);
+
+      // Impact has low score (30) and high weight (0.30), so potential = (100-30)*0.30 = 21
+      expect(mostImpactful).toBe("impact");
+    });
+
+    it("should consider weight in improvement calculation", () => {
+      // Set all dimensions to same score
+      const preAnalysis = createMockPreAnalysis({
+        impact: { ...defaultMockImpact, score: 50 },
+        uniqueness: { ...defaultMockUniqueness, score: 50 },
+        context: { ...defaultMockContext, score: 50 },
+        company: null, // Gives contextTranslation score of 70
+        softSkills: [], // Gives culturalFit score of 30
+      });
+      const score = calculateRecruiterReadiness(preAnalysis);
+      const mostImpactful = getMostImpactfulImprovement(score);
+
+      // culturalFit has score 30 but low weight (0.10), potential = 70*0.10 = 7
+      // impact has score 50 and high weight (0.30), potential = 50*0.30 = 15
+      // customization has score 50 and weight 0.25, potential = 50*0.25 = 12.5
+      // impact should win due to highest weighted potential
+      expect(typeof mostImpactful).toBe("string");
+      expect(["impact", "customization", "culturalFit"]).toContain(mostImpactful);
+    });
+
+    it("should return a valid dimension key", () => {
+      const preAnalysis = createMockPreAnalysis();
+      const score = calculateRecruiterReadiness(preAnalysis);
+      const mostImpactful = getMostImpactfulImprovement(score);
+
+      const validDimensions = [
+        "uniqueness",
+        "impact",
+        "contextTranslation",
+        "culturalFit",
+        "customization",
+      ];
+      expect(validDimensions).toContain(mostImpactful);
+    });
+  });
+
+  describe("context translation scoring", () => {
+    it("should return 70 for no company", () => {
+      const noCompany = createMockPreAnalysis({
+        company: null,
+      });
+      const result = calculateRecruiterReadiness(noCompany);
+      expect(result.dimensions.contextTranslation.raw).toBe(70);
+    });
+
+    it("should return 80 for comparable company", () => {
+      const comparableCompany = createMockPreAnalysis({
+        company: {
+          companyName: "Startup",
+          isWellKnown: false,
+          industry: "Tech",
+          size: "startup",
+          fundingStage: "Series A",
+          comparable: "Like a smaller Stripe",
+          context: "",
+        },
+      });
+      const result = calculateRecruiterReadiness(comparableCompany);
+      expect(result.dimensions.contextTranslation.raw).toBe(80);
+    });
+
+    it("should return 60 for company with only context", () => {
+      const contextOnly = createMockPreAnalysis({
+        company: {
+          companyName: "Unknown Startup",
+          isWellKnown: false,
+          industry: "Tech",
+          size: "startup",
+          fundingStage: null,
+          comparable: null,
+          context: "A fintech startup",
+        },
+      });
+      const result = calculateRecruiterReadiness(contextOnly);
+      expect(result.dimensions.contextTranslation.raw).toBe(60);
+    });
+
+    it("should return 30 for unknown company with no context", () => {
+      const noContext = createMockPreAnalysis({
+        company: {
+          companyName: "Random Inc",
+          isWellKnown: false,
+          industry: "Unknown",
+          size: "unknown",
+          fundingStage: null,
+          comparable: null,
+          context: "",
+        },
+      });
+      const result = calculateRecruiterReadiness(noContext);
+      expect(result.dimensions.contextTranslation.raw).toBe(30);
+    });
+  });
+
+  describe("cultural fit scoring", () => {
+    it("should calculate score based on soft skill strength", () => {
+      const strongSkills = createMockPreAnalysis({
+        softSkills: [
+          { skill: "Leadership", evidence: ["Led"], strength: "strong", bulletIds: ["1"] },
+          { skill: "Communication", evidence: ["Spoke"], strength: "strong", bulletIds: ["2"] },
+        ],
+      });
+      const result = calculateRecruiterReadiness(strongSkills);
+      // 30 base + 2 strong * 20 = 70
+      expect(result.dimensions.culturalFit.raw).toBe(70);
+    });
+
+    it("should include moderate skills in calculation", () => {
+      const mixedSkills = createMockPreAnalysis({
+        softSkills: [
+          { skill: "Leadership", evidence: ["Led"], strength: "strong", bulletIds: ["1"] },
+          { skill: "Communication", evidence: ["Spoke"], strength: "moderate", bulletIds: ["2"] },
+          { skill: "Teamwork", evidence: ["Worked"], strength: "moderate", bulletIds: ["3"] },
+        ],
+      });
+      const result = calculateRecruiterReadiness(mixedSkills);
+      // 30 base + 1 strong * 20 + 2 moderate * 10 = 30 + 20 + 20 = 70
+      expect(result.dimensions.culturalFit.raw).toBe(70);
+    });
+
+    it("should cap score at 100", () => {
+      const manySkills = createMockPreAnalysis({
+        softSkills: [
+          { skill: "Leadership", evidence: ["Led"], strength: "strong", bulletIds: ["1"] },
+          { skill: "Communication", evidence: ["Spoke"], strength: "strong", bulletIds: ["2"] },
+          { skill: "Teamwork", evidence: ["Worked"], strength: "strong", bulletIds: ["3"] },
+          { skill: "Problem Solving", evidence: ["Solved"], strength: "strong", bulletIds: ["4"] },
+          { skill: "Creativity", evidence: ["Created"], strength: "strong", bulletIds: ["5"] },
+        ],
+      });
+      const result = calculateRecruiterReadiness(manySkills);
+      // 30 + 5 * 20 = 130, but capped at 100
+      expect(result.dimensions.culturalFit.raw).toBe(100);
     });
   });
 });

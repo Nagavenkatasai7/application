@@ -120,7 +120,7 @@ export async function POST(request: Request): Promise<NextResponse<LinkedInSearc
         success: false,
         error: {
           code: "SEARCH_ERROR",
-          message: "Failed to search LinkedIn jobs. Please try again.",
+          message: message, // Show actual error for debugging
         },
       },
       { status: 500 }

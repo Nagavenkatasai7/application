@@ -158,7 +158,7 @@ export function LinkedInSearchSheet({ onJobAdded }: LinkedInSearchSheetProps) {
           Search LinkedIn
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-lg flex flex-col">
+      <SheetContent className="w-full sm:max-w-lg flex flex-col h-full overflow-hidden">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Linkedin className="h-5 w-5 text-blue-500" />
@@ -172,7 +172,7 @@ export function LinkedInSearchSheet({ onJobAdded }: LinkedInSearchSheetProps) {
         {/* Search Form */}
         <form
           onSubmit={form.handleSubmit(handleSearch)}
-          className="space-y-4 mt-6"
+          className="space-y-4 mt-6 shrink-0"
         >
           {/* Keywords */}
           <div className="space-y-2">
@@ -260,7 +260,7 @@ export function LinkedInSearchSheet({ onJobAdded }: LinkedInSearchSheetProps) {
 
         {/* Results List */}
         {results.length > 0 && (
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
             <div className="space-y-3 pb-4">
               {results.map((job) => (
                 <LinkedInJobResultCard
