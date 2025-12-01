@@ -47,7 +47,7 @@ describe('Auth Module', () => {
   describe('getAuthUser', () => {
     it('should return null when no session exists', async () => {
       const { auth } = await import('@/auth')
-      vi.mocked(auth).mockResolvedValue(null)
+      vi.mocked(auth as () => Promise<null>).mockResolvedValue(null)
 
       const user = await getAuthUser()
 
@@ -74,7 +74,7 @@ describe('Auth Module', () => {
   describe('getOrCreateLocalUser (deprecated)', () => {
     it('should throw error when no session exists', async () => {
       const { auth } = await import('@/auth')
-      vi.mocked(auth).mockResolvedValue(null)
+      vi.mocked(auth as () => Promise<null>).mockResolvedValue(null)
 
       await expect(getOrCreateLocalUser()).rejects.toThrow('Authentication required')
     })
