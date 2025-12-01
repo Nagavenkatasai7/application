@@ -194,6 +194,7 @@ jobs:
             --env AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
             --env AUTH_RESEND_KEY="${{ secrets.AUTH_RESEND_KEY }}" \
             --env AUTH_TRUST_HOST="true" \
+            --env AUTH_URL="https://resumint.app" \
             --env EMAIL_FROM="${{ secrets.EMAIL_FROM }}" \
             --env ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" \
             --env AI_PROVIDER="anthropic" \
