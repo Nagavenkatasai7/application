@@ -147,12 +147,12 @@ describe("linkedInSearchSchema", () => {
       ).toThrow();
     });
 
-    it("should reject limit above 25", () => {
+    it("should reject limit above 50", () => {
       expect(() =>
         linkedInSearchSchema.parse({
           keywords: "Developer",
           timeFrame: "24h",
-          limit: 26,
+          limit: 51,
         })
       ).toThrow();
     });

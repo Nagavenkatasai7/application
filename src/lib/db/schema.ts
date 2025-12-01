@@ -42,6 +42,10 @@ export const resumes = pgTable(
     originalFileName: text("original_file_name"), // Original uploaded PDF filename
     fileSize: integer("file_size"), // File size in bytes
     extractedText: text("extracted_text"), // Raw text extracted from PDF
+    // Template preservation fields
+    originalPdfUrl: text("original_pdf_url"), // Vercel Blob URL for original PDF
+    templateAnalysis: jsonb("template_analysis"), // AI-extracted template styles (colors, fonts, layout)
+    hasCustomTemplate: boolean("has_custom_template").default(false), // Flag for custom template uploads
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

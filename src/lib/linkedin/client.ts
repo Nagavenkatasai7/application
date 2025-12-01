@@ -2,6 +2,7 @@
  * Apify LinkedIn Jobs Scraper Client
  *
  * Wrapper for the Apify REST API to search LinkedIn jobs
+ * Based on bebity/linkedin-jobs-scraper actor
  */
 
 import { getApifyApiKey, isApifyConfigured } from "@/lib/env";
@@ -9,9 +10,13 @@ import type {
   LinkedInSearchParams,
   ApifyRunResponse,
   ApifyLinkedInJob,
-  ExperienceLevel,
 } from "./types";
-import { EXPERIENCE_LEVEL_OPTIONS } from "./types";
+import {
+  TIME_FRAME_OPTIONS,
+  EXPERIENCE_LEVEL_OPTIONS,
+  WORKPLACE_TYPE_OPTIONS,
+  JOB_TYPE_OPTIONS,
+} from "./types";
 
 // =============================================================================
 // CONSTANTS
@@ -38,7 +43,7 @@ export function isLinkedInSearchAvailable(): boolean {
 /**
  * Search LinkedIn jobs via Apify
  *
- * @param params Search parameters (keywords, location, timeFrame, limit)
+ * @param params Search parameters with all filter options
  * @returns Array of raw job results from Apify
  */
 export async function searchLinkedInJobs(
@@ -110,44 +115,76 @@ async function startActorRun(
  * Based on bebity/linkedin-jobs-scraper actor input schema:
  * - title: Job title search term
  * - location: Location filter
- * - publishedAt: Time filter (empty string or date range)
- * - rows: Number of results to return
- * - experienceLevel: Experience level filter (comma-separated values)
- * - proxy: Proxy configuration with RESIDENTIAL group
+ * - companyName: Array of company names to filter
+ * - companyId: Array of company IDs to filter
+ * - publishedAt: Time filter ("", "r86400", "r604800", "r2592000")
+ * - rows: Number of results to return (max 50)
+ * - onSiteRemote: Workplace type ("1"=On-site, "2"=Remote, "3"=Hybrid)
+ * - jobType: Job type ("F"=Full-time, "P"=Part-time, etc.)
+ * - experienceLevel: Experience level ("1"-"6")
+ * - proxy: Proxy configuration
  */
 function buildActorInput(params: LinkedInSearchParams): Record<string, unknown> {
-  const { keywords, location, timeFrame, limit = 25, experienceLevels } = params;
+  const {
+    keywords,
+    location,
+    companyName,
+    companyId,
+    timeFrame,
+    limit = 50,
+    experienceLevel,
+    workplaceType,
+    jobType,
+  } = params;
 
-  // Map our timeFrame to Apify bebity/linkedin-jobs-scraper publishedAt format
-  // Note: Only these values are supported by the Apify actor
-  const timeFilterMap: Record<string, string> = {
-    "24h": "r86400",     // 24 hours = 86,400 seconds
-    "1w": "r604800",     // 7 days = 604,800 seconds
-    "1m": "r2592000",    // 30 days = 2,592,000 seconds
-  };
-
-  // Build experience level filter - Apify only accepts a single value ("1", "2", etc.)
-  // If multiple levels are selected, use the first one (lowest/most entry-level)
-  const experienceLevelFilter = experienceLevels && experienceLevels.length > 0
-    ? EXPERIENCE_LEVEL_OPTIONS[experienceLevels[0]].value
-    : "";
-
-  return {
-    // Job title search term
+  // Build the input object - only include fields that have values
+  const input: Record<string, unknown> = {
+    // Job title search term (required)
     title: keywords,
     // Location filter
     location: location || "",
-    // Time filter - LinkedIn datePosted format
-    publishedAt: timeFilterMap[timeFrame] || "r86400",
-    // Number of results (Apify max is 25)
-    rows: Math.min(limit, 25),
-    // Experience level filter (1=Internship, 2=Entry Level, 3=Associate)
-    experienceLevel: experienceLevelFilter,
-    // Proxy configuration - let Apify use default proxy
+    // Number of results (Apify allows up to 50)
+    rows: Math.min(limit, 50),
+    // Proxy configuration
     proxy: {
       useApifyProxy: true,
     },
   };
+
+  // Add company name filter if provided
+  if (companyName && companyName.length > 0) {
+    input.companyName = companyName;
+  }
+
+  // Add company ID filter if provided
+  if (companyId && companyId.length > 0) {
+    input.companyId = companyId;
+  }
+
+  // Add time filter (publishedAt)
+  if (timeFrame && TIME_FRAME_OPTIONS[timeFrame]) {
+    input.publishedAt = TIME_FRAME_OPTIONS[timeFrame].apiValue;
+  } else {
+    // Default to empty string (any time)
+    input.publishedAt = "";
+  }
+
+  // Add experience level filter
+  if (experienceLevel && EXPERIENCE_LEVEL_OPTIONS[experienceLevel]) {
+    input.experienceLevel = EXPERIENCE_LEVEL_OPTIONS[experienceLevel].apiValue;
+  }
+
+  // Add workplace type filter (onSiteRemote)
+  if (workplaceType && WORKPLACE_TYPE_OPTIONS[workplaceType]) {
+    input.onSiteRemote = WORKPLACE_TYPE_OPTIONS[workplaceType].apiValue;
+  }
+
+  // Add job type filter
+  if (jobType && JOB_TYPE_OPTIONS[jobType]) {
+    input.jobType = JOB_TYPE_OPTIONS[jobType].apiValue;
+  }
+
+  return input;
 }
 
 /**

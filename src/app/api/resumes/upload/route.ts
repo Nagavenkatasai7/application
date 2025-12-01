@@ -2,11 +2,19 @@ import { NextResponse } from "next/server";
 import { db, resumes } from "@/lib/db";
 import { getOrCreateLocalUser } from "@/lib/auth";
 import { v4 as uuidv4 } from "uuid";
+import { put } from "@vercel/blob";
 import { extractTextFromPdf } from "@/lib/pdf/parser";
+import { analyzeTemplateFromText } from "@/lib/pdf/template-analyzer";
 import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES } from "@/lib/validations/resume";
 import { parseResumeText } from "@/lib/ai/resume-parser";
 import { isAIConfigured } from "@/lib/ai/config";
+import { sanitizeFilename } from "@/lib/api";
 import type { ResumeContent } from "@/lib/validations/resume";
+
+// Check if Vercel Blob is configured
+function isBlobConfigured(): boolean {
+  return !!process.env.BLOB_READ_WRITE_TOKEN;
+}
 
 // Allow up to 3 minutes for PDF extraction and AI parsing
 // Vercel Fluid Compute on Hobby plan supports up to 300s
@@ -106,23 +114,60 @@ export async function POST(request: Request) {
       }
     }
 
+    // Sanitize the uploaded filename to prevent path traversal
+    const safeFileName = sanitizeFilename(file.name);
+
     // Generate resume name from filename, parsed name, or use provided name
     const resumeName =
       name ||
       (parsedContent.contact.name && parsedContent.contact.name.trim()) ||
-      file.name.replace(/\.pdf$/i, "") ||
+      safeFileName.replace(/\.pdf$/i, "") ||
       "Untitled Resume";
+
+    // Generate resume ID upfront for blob path
+    const resumeId = uuidv4();
+
+    // Store original PDF in Vercel Blob for template preservation
+    let originalPdfUrl: string | null = null;
+    if (isBlobConfigured()) {
+      try {
+        const blob = await put(`resumes/${resumeId}/original.pdf`, buffer, {
+          access: "public",
+          contentType: "application/pdf",
+        });
+        originalPdfUrl = blob.url;
+        console.log("Stored original PDF in Vercel Blob:", blob.url);
+      } catch (error) {
+        console.error("Failed to store PDF in Vercel Blob:", error);
+        // Continue without blob storage - not critical for functionality
+      }
+    }
+
+    // Analyze template structure from extracted text
+    let templateAnalysis = null;
+    if (extractedText && originalPdfUrl) {
+      try {
+        templateAnalysis = analyzeTemplateFromText(extractedText);
+        console.log("Template analysis complete:", templateAnalysis.sections.order);
+      } catch (error) {
+        console.error("Template analysis failed:", error);
+        // Continue without template analysis
+      }
+    }
 
     // Create resume record with timestamps
     const now = new Date();
     const newResume = {
-      id: uuidv4(),
+      id: resumeId,
       userId: user.id,
       name: resumeName,
       content: parsedContent,
-      originalFileName: file.name,
+      originalFileName: safeFileName,
       fileSize: file.size,
       extractedText: extractedText || null,
+      originalPdfUrl: originalPdfUrl,
+      templateAnalysis: templateAnalysis,
+      hasCustomTemplate: !!originalPdfUrl, // Mark as having custom template if PDF stored
       createdAt: now,
       updatedAt: now,
     };

@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import { db, resumes } from "@/lib/db";
 import { getOrCreateLocalUser } from "@/lib/auth";
 import { eq, desc } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
+import { successResponse, errorResponse } from "@/lib/api";
 
 // GET /api/resumes - List all resumes for current user
 export async function GET() {
@@ -15,17 +15,10 @@ export async function GET() {
       .where(eq(resumes.userId, user.id))
       .orderBy(desc(resumes.updatedAt));
 
-    return NextResponse.json({
-      success: true,
-      data: userResumes,
-      meta: { total: userResumes.length },
-    });
+    return successResponse(userResumes);
   } catch (error) {
     console.error("Error fetching resumes:", error);
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message: "Failed to fetch resumes" } },
-      { status: 500 }
-    );
+    return errorResponse("FETCH_ERROR", "Failed to fetch resumes");
   }
 }
 
@@ -51,12 +44,9 @@ export async function POST(request: Request) {
       .from(resumes)
       .where(eq(resumes.id, newResume.id));
 
-    return NextResponse.json({ success: true, data: createdResume }, { status: 201 });
+    return successResponse(createdResume, 201);
   } catch (error) {
     console.error("Error creating resume:", error);
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message: "Failed to create resume" } },
-      { status: 500 }
-    );
+    return errorResponse("CREATE_ERROR", "Failed to create resume");
   }
 }

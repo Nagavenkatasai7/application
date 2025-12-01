@@ -69,14 +69,20 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob:",
+              // Note: 'unsafe-inline' required for Next.js hydration scripts
+              // 'unsafe-eval' only needed in development for hot reload
+              process.env.NODE_ENV === "development"
+                ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+                : "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'", // Required for Next.js inline styles
+              "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://api.anthropic.com https://api.openai.com",
+              "connect-src 'self' https://api.anthropic.com https://api.openai.com https://*.vercel.app",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
+              "object-src 'none'", // Prevent plugin exploitation
+              "upgrade-insecure-requests", // Force HTTPS
             ].join("; "),
           },
         ],

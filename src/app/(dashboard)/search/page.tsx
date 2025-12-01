@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -19,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   PageTransition,
   StaggerContainer,
@@ -29,23 +27,31 @@ import { LinkedInJobResultCard } from "@/components/jobs/linkedin-job-result-car
 import {
   TIME_FRAME_OPTIONS,
   EXPERIENCE_LEVEL_OPTIONS,
+  WORKPLACE_TYPE_OPTIONS,
+  JOB_TYPE_OPTIONS,
   type LinkedInJobResult,
   type TimeFrame,
   type ExperienceLevel,
+  type WorkplaceType,
+  type JobType,
 } from "@/lib/linkedin/types";
 import {
   Linkedin,
   Search,
   Loader2,
   AlertCircle,
-  GraduationCap,
   Briefcase,
   Sparkles,
   TrendingUp,
+  MapPin,
+  Clock,
+  Building2,
+  Filter,
+  X,
 } from "lucide-react";
 
-// Entry-level focused search schema
-const entryLevelSearchSchema = z.object({
+// Search schema matching Apify actor inputs
+const linkedInSearchSchema = z.object({
   keywords: z
     .string()
     .min(2, "Job title must be at least 2 characters")
@@ -57,65 +63,73 @@ const entryLevelSearchSchema = z.object({
     .trim()
     .optional()
     .transform((val) => (val === "" ? undefined : val)),
-  timeFrame: z.enum(["24h", "1w", "1m"] as const),
-  // Single experience level - Apify only accepts one value
-  experienceLevel: z.enum(["internship", "entry_level", "associate"] as const),
-  limit: z.coerce.number().min(1).max(25).optional(),
+  timeFrame: z.enum(["", "24h", "1w", "1m"] as const).optional(),
+  experienceLevel: z
+    .enum(["internship", "entry_level", "associate", "mid_senior", "director", "executive"] as const)
+    .optional(),
+  workplaceType: z.enum(["on_site", "remote", "hybrid"] as const).optional(),
+  jobType: z
+    .enum(["full_time", "part_time", "contract", "temporary", "internship", "volunteer"] as const)
+    .optional(),
+  limit: z.coerce.number().min(1).max(50).optional(),
 });
 
-type EntryLevelSearchFormData = z.input<typeof entryLevelSearchSchema>;
-type EntryLevelSearchInput = z.output<typeof entryLevelSearchSchema>;
+type SearchFormData = z.input<typeof linkedInSearchSchema>;
+type SearchInput = z.output<typeof linkedInSearchSchema>;
 
-// Suggested keywords for freshers/entry-level
-const FRESHER_KEYWORD_SUGGESTIONS = [
-  { keyword: "Software Engineer Intern", category: "Tech" },
-  { keyword: "Junior Developer", category: "Tech" },
-  { keyword: "Data Analyst Intern", category: "Analytics" },
-  { keyword: "Marketing Intern", category: "Marketing" },
-  { keyword: "Product Management Intern", category: "Product" },
-  { keyword: "UX Design Intern", category: "Design" },
+// Popular keyword suggestions
+const KEYWORD_SUGGESTIONS = [
+  { keyword: "Software Engineer", category: "Tech" },
+  { keyword: "Data Analyst", category: "Analytics" },
+  { keyword: "Product Manager", category: "Product" },
+  { keyword: "UX Designer", category: "Design" },
+  { keyword: "Marketing Manager", category: "Marketing" },
   { keyword: "Business Analyst", category: "Business" },
-  { keyword: "Graduate Engineer", category: "Engineering" },
-  { keyword: "Junior Data Scientist", category: "Data" },
-  { keyword: "Content Writer Intern", category: "Content" },
-  { keyword: "HR Intern", category: "HR" },
-  { keyword: "Finance Intern", category: "Finance" },
+  { keyword: "DevOps Engineer", category: "Tech" },
+  { keyword: "Data Scientist", category: "Data" },
+  { keyword: "Frontend Developer", category: "Tech" },
+  { keyword: "Backend Developer", category: "Tech" },
+  { keyword: "Full Stack Developer", category: "Tech" },
+  { keyword: "Machine Learning Engineer", category: "AI" },
 ];
 
-export default function EntryLevelSearchPage() {
+export default function LinkedInSearchPage() {
   const [results, setResults] = useState<LinkedInJobResult[]>([]);
   const [addedJobIds, setAddedJobIds] = useState<Set<string>>(new Set());
   const [hasSearched, setHasSearched] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const queryClient = useQueryClient();
 
-  // Form setup with entry-level defaults
-  const form = useForm<EntryLevelSearchFormData>({
-    resolver: zodResolver(entryLevelSearchSchema),
+  // Form setup with defaults
+  const form = useForm<SearchFormData>({
+    resolver: zodResolver(linkedInSearchSchema),
     defaultValues: {
       keywords: "",
       location: "",
-      timeFrame: "24h",
-      experienceLevel: "internship", // Default to internship for freshers
-      limit: 25,
+      timeFrame: "",
+      experienceLevel: undefined,
+      workplaceType: undefined,
+      jobType: undefined,
+      limit: 50,
     },
   });
 
-  // Watch form values for controlled components
-  const selectedExperienceLevel = form.watch("experienceLevel");
+  // Count active filters
+  const activeFilters = [
+    form.watch("timeFrame"),
+    form.watch("experienceLevel"),
+    form.watch("workplaceType"),
+    form.watch("jobType"),
+  ].filter(Boolean).length;
 
   // Search mutation
   const searchMutation = useMutation({
-    mutationFn: async (data: EntryLevelSearchInput) => {
-      // Convert single experienceLevel to array for API
-      const apiData = {
-        ...data,
-        experienceLevels: [data.experienceLevel],
-      };
+    mutationFn: async (data: SearchInput) => {
       const response = await fetch("/api/linkedin/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(apiData),
+        body: JSON.stringify(data),
       });
 
       const result = await response.json();
@@ -130,9 +144,9 @@ export default function EntryLevelSearchPage() {
       setResults(data.jobs);
       setHasSearched(true);
       if (data.jobs.length === 0) {
-        toast.info("No entry-level jobs found. Try different keywords or a longer time frame.");
+        toast.info("No jobs found. Try adjusting your filters or keywords.");
       } else {
-        toast.success(`Found ${data.jobs.length} entry-level job${data.jobs.length !== 1 ? "s" : ""}`);
+        toast.success(`Found ${data.jobs.length} job${data.jobs.length !== 1 ? "s" : ""}`);
       }
     },
     onError: (error: Error) => {
@@ -174,9 +188,9 @@ export default function EntryLevelSearchPage() {
     },
   });
 
-  const handleSearch = (data: EntryLevelSearchFormData) => {
+  const handleSearch = (data: SearchFormData) => {
     setHasSearched(false);
-    searchMutation.mutate(data as EntryLevelSearchInput);
+    searchMutation.mutate(data as SearchInput);
   };
 
   const handleAddJob = (job: LinkedInJobResult) => {
@@ -187,6 +201,13 @@ export default function EntryLevelSearchPage() {
     form.setValue("keywords", keyword);
   };
 
+  const clearFilters = () => {
+    form.setValue("timeFrame", "");
+    form.setValue("experienceLevel", undefined);
+    form.setValue("workplaceType", undefined);
+    form.setValue("jobType", undefined);
+  };
+
   return (
     <PageTransition>
       <div className="space-y-6">
@@ -194,119 +215,263 @@ export default function EntryLevelSearchPage() {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
-              <GraduationCap className="h-5 w-5 text-blue-500" />
+              <Linkedin className="h-5 w-5 text-blue-500" />
             </div>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">
-                Entry-Level Job Search
+                LinkedIn Job Search
               </h1>
               <p className="text-muted-foreground">
-                Find internships and entry-level positions for freshers
+                Search millions of jobs on LinkedIn with advanced filters
               </p>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
-          {/* Search Form */}
-          <div className="space-y-6">
+        {/* Search Form Section */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+          {/* Main Search Card */}
+          <div>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Linkedin className="h-5 w-5 text-blue-500" />
-                  Search LinkedIn Jobs
+                  <Search className="h-5 w-5 text-blue-500" />
+                  Search Jobs
                 </CardTitle>
                 <CardDescription>
-                  Search for entry-level positions and internships on LinkedIn
+                  Enter job title and location, then customize with filters
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={form.handleSubmit(handleSearch)} className="space-y-4">
-                  {/* Keywords */}
-                  <div className="space-y-2">
-                    <Label htmlFor="keywords">Job Title / Keywords *</Label>
-                    <Input
-                      id="keywords"
-                      placeholder="e.g., Software Engineer Intern, Junior Developer"
-                      {...form.register("keywords")}
-                      disabled={searchMutation.isPending}
-                    />
-                    {form.formState.errors.keywords && (
-                      <p className="text-xs text-destructive">
-                        {form.formState.errors.keywords.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Location */}
-                  <div className="space-y-2">
-                    <Label htmlFor="location">Location</Label>
-                    <Input
-                      id="location"
-                      placeholder="e.g., San Francisco, CA or Remote"
-                      {...form.register("location")}
-                      disabled={searchMutation.isPending}
-                    />
-                  </div>
-
-                  {/* Experience Level Selection */}
-                  <div className="space-y-2">
-                    <Label>Experience Level</Label>
-                    <RadioGroup
-                      value={selectedExperienceLevel}
-                      onValueChange={(value) => form.setValue("experienceLevel", value as ExperienceLevel)}
-                      disabled={searchMutation.isPending}
-                      className="flex flex-wrap gap-2"
-                    >
-                      {(Object.entries(EXPERIENCE_LEVEL_OPTIONS) as [ExperienceLevel, { label: string; description: string }][]).map(
-                        ([level, { label, description }]) => (
-                          <div
-                            key={level}
-                            className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
-                              selectedExperienceLevel === level
-                                ? "border-primary bg-primary/5"
-                                : "border-border hover:border-primary/50"
-                            }`}
-                            onClick={() => form.setValue("experienceLevel", level)}
-                          >
-                            <RadioGroupItem value={level} id={level} />
-                            <div>
-                              <p className="text-sm font-medium">{label}</p>
-                              <p className="text-xs text-muted-foreground">{description}</p>
-                            </div>
-                          </div>
-                        )
+                <form onSubmit={form.handleSubmit(handleSearch)} className="space-y-6">
+                  {/* Main Search Fields */}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {/* Keywords */}
+                    <div className="space-y-2">
+                      <Label htmlFor="keywords" className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4" />
+                        Job Title / Keywords *
+                      </Label>
+                      <Input
+                        id="keywords"
+                        placeholder="e.g., Software Engineer, Data Analyst"
+                        {...form.register("keywords")}
+                        disabled={searchMutation.isPending}
+                      />
+                      {form.formState.errors.keywords && (
+                        <p className="text-xs text-destructive">
+                          {form.formState.errors.keywords.message}
+                        </p>
                       )}
-                    </RadioGroup>
-                    {form.formState.errors.experienceLevel && (
-                      <p className="text-xs text-destructive">
-                        {form.formState.errors.experienceLevel.message}
-                      </p>
+                    </div>
+
+                    {/* Location */}
+                    <div className="space-y-2">
+                      <Label htmlFor="location" className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Location
+                      </Label>
+                      <Input
+                        id="location"
+                        placeholder="e.g., San Francisco, CA or Remote"
+                        {...form.register("location")}
+                        disabled={searchMutation.isPending}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Toggle Advanced Filters */}
+                  <div className="flex items-center justify-between">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                      className="gap-2"
+                    >
+                      <Filter className="h-4 w-4" />
+                      {showAdvancedFilters ? "Hide Filters" : "Show Filters"}
+                      {activeFilters > 0 && (
+                        <Badge variant="secondary" className="ml-1">
+                          {activeFilters}
+                        </Badge>
+                      )}
+                    </Button>
+                    {activeFilters > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="gap-1 text-muted-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                        Clear filters
+                      </Button>
                     )}
                   </div>
 
-                  {/* Time Frame */}
-                  <div className="space-y-2">
-                    <Label>Posted Within</Label>
-                    <Select
-                      value={form.watch("timeFrame")}
-                      onValueChange={(value) => form.setValue("timeFrame", value as TimeFrame)}
-                      disabled={searchMutation.isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(Object.entries(TIME_FRAME_OPTIONS) as [TimeFrame, { label: string }][]).map(
-                          ([value, { label }]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          )
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Advanced Filters */}
+                  {showAdvancedFilters && (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 p-4 bg-muted/50 rounded-lg">
+                      {/* Time Frame */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-sm">
+                          <Clock className="h-4 w-4" />
+                          Posted Within
+                        </Label>
+                        <Select
+                          value={form.watch("timeFrame") || "__none__"}
+                          onValueChange={(value) =>
+                            form.setValue("timeFrame", value === "__none__" ? "" as TimeFrame : value as TimeFrame)
+                          }
+                          disabled={searchMutation.isPending}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Any time" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Any time</SelectItem>
+                            {(Object.entries(TIME_FRAME_OPTIONS) as [TimeFrame, { label: string }][])
+                              .filter(([value]) => value !== "")
+                              .map(([value, { label }]) => (
+                                <SelectItem key={value} value={value}>
+                                  {label}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Experience Level */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-sm">
+                          <TrendingUp className="h-4 w-4" />
+                          Experience Level
+                        </Label>
+                        <Select
+                          value={form.watch("experienceLevel") || "__none__"}
+                          onValueChange={(value) =>
+                            form.setValue(
+                              "experienceLevel",
+                              value === "__none__" ? undefined : (value as ExperienceLevel)
+                            )
+                          }
+                          disabled={searchMutation.isPending}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Any level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Any level</SelectItem>
+                            {(
+                              Object.entries(EXPERIENCE_LEVEL_OPTIONS) as [
+                                ExperienceLevel,
+                                { label: string; description: string }
+                              ][]
+                            ).map(([value, { label }]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Workplace Type */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-sm">
+                          <Building2 className="h-4 w-4" />
+                          Workplace Type
+                        </Label>
+                        <Select
+                          value={form.watch("workplaceType") || "__none__"}
+                          onValueChange={(value) =>
+                            form.setValue(
+                              "workplaceType",
+                              value === "__none__" ? undefined : (value as WorkplaceType)
+                            )
+                          }
+                          disabled={searchMutation.isPending}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Any type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Any type</SelectItem>
+                            {(
+                              Object.entries(WORKPLACE_TYPE_OPTIONS) as [
+                                WorkplaceType,
+                                { label: string }
+                              ][]
+                            ).map(([value, { label }]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Job Type */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-sm">
+                          <Briefcase className="h-4 w-4" />
+                          Job Type
+                        </Label>
+                        <Select
+                          value={form.watch("jobType") || "__none__"}
+                          onValueChange={(value) =>
+                            form.setValue(
+                              "jobType",
+                              value === "__none__" ? undefined : (value as JobType)
+                            )
+                          }
+                          disabled={searchMutation.isPending}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Any type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Any type</SelectItem>
+                            {(
+                              Object.entries(JOB_TYPE_OPTIONS) as [
+                                JobType,
+                                { label: string }
+                              ][]
+                            ).map(([value, { label }]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Results Limit */}
+                      <div className="space-y-2 sm:col-span-2 lg:col-span-4">
+                        <Label className="flex items-center gap-2 text-sm">
+                          Results Limit
+                        </Label>
+                        <Select
+                          value={String(form.watch("limit") || 50)}
+                          onValueChange={(value) =>
+                            form.setValue("limit", parseInt(value))
+                          }
+                          disabled={searchMutation.isPending}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10 results</SelectItem>
+                            <SelectItem value="25">25 results</SelectItem>
+                            <SelectItem value="50">50 results</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Search Button */}
                   <Button
@@ -317,12 +482,12 @@ export default function EntryLevelSearchPage() {
                     {searchMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Searching for Entry-Level Jobs...
+                        Searching LinkedIn Jobs...
                       </>
                     ) : (
                       <>
                         <Search className="mr-2 h-4 w-4" />
-                        Search Entry-Level Jobs
+                        Search Jobs
                       </>
                     )}
                   </Button>
@@ -335,7 +500,7 @@ export default function EntryLevelSearchPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  Popular Searches for Freshers
+                  Popular Searches
                 </CardTitle>
                 <CardDescription>
                   Click on a suggestion to search
@@ -343,7 +508,7 @@ export default function EntryLevelSearchPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {FRESHER_KEYWORD_SUGGESTIONS.map((suggestion) => (
+                  {KEYWORD_SUGGESTIONS.map((suggestion) => (
                     <Badge
                       key={suggestion.keyword}
                       variant="outline"
@@ -356,116 +521,113 @@ export default function EntryLevelSearchPage() {
                 </div>
               </CardContent>
             </Card>
+          </div>
 
-            {/* Tips for Freshers */}
+          {/* Tips Sidebar */}
+          <div className="space-y-4">
+            {/* Search Tips */}
             <Card className="border-dashed">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-green-500" />
-                  Tips for Entry-Level Job Seekers
+                  Search Tips
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="text-sm text-muted-foreground space-y-2">
                   <li className="flex items-start gap-2">
                     <span className="text-primary">1.</span>
-                    <span>Use keywords like &quot;intern&quot;, &quot;junior&quot;, &quot;graduate&quot;, or &quot;entry-level&quot;</span>
+                    <span>Use specific job titles for better results</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary">2.</span>
-                    <span>Set &quot;Past 24 hours&quot; for the freshest opportunities</span>
+                    <span>Leave filters empty for more results</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary">3.</span>
-                    <span>Include &quot;Remote&quot; in location for more options</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary">4.</span>
-                    <span>Apply early - internships and entry-level roles fill quickly</span>
+                    <span>Try &quot;Remote&quot; in location</span>
                   </li>
                 </ul>
               </CardContent>
             </Card>
           </div>
+        </div>
 
-          {/* Results Section */}
-          <div className="lg:h-[calc(100vh-200px)]">
-            <Card className="h-full flex flex-col">
-              <CardHeader className="pb-3 shrink-0">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
+        {/* Results Section - Full Width Below */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-blue-500" />
                   Search Results
                 </CardTitle>
                 {results.length > 0 && (
                   <CardDescription>
-                    Found {results.length} job{results.length !== 1 ? "s" : ""}
+                    Found {results.length} job{results.length !== 1 ? "s" : ""} matching your search
                   </CardDescription>
                 )}
-              </CardHeader>
-              <CardContent className="flex-1 overflow-hidden p-0">
-                {/* Results List */}
-                {results.length > 0 && (
-                  <ScrollArea className="h-full px-6 pb-6">
-                    <StaggerContainer className="space-y-3">
-                      {results.map((job) => (
-                        <StaggerItem key={job.id}>
-                          <LinkedInJobResultCard
-                            job={job}
-                            isAdded={addedJobIds.has(job.id)}
-                            onAdd={() => handleAddJob(job)}
-                            isAdding={
-                              addJobMutation.isPending &&
-                              addJobMutation.variables?.id === job.id
-                            }
-                          />
-                        </StaggerItem>
-                      ))}
-                    </StaggerContainer>
-                  </ScrollArea>
-                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Results Grid */}
+            {results.length > 0 && (
+              <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {results.map((job) => (
+                  <StaggerItem key={job.id}>
+                    <LinkedInJobResultCard
+                      job={job}
+                      isAdded={addedJobIds.has(job.id)}
+                      onAdd={() => handleAddJob(job)}
+                      isAdding={
+                        addJobMutation.isPending &&
+                        addJobMutation.variables?.id === job.id
+                      }
+                    />
+                  </StaggerItem>
+                ))}
+              </StaggerContainer>
+            )}
 
-                {/* Empty State */}
-                {hasSearched && results.length === 0 && !searchMutation.isPending && (
-                  <div className="flex flex-col items-center justify-center text-center py-12 px-6">
-                    <div className="rounded-full bg-muted p-3 mb-3">
-                      <AlertCircle className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      No entry-level jobs found.
-                      <br />
-                      Try different keywords or a longer time frame.
-                    </p>
-                  </div>
-                )}
+            {/* Empty State */}
+            {hasSearched && results.length === 0 && !searchMutation.isPending && (
+              <div className="flex flex-col items-center justify-center text-center py-16">
+                <div className="rounded-full bg-muted p-4 mb-4">
+                  <AlertCircle className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <p className="text-lg font-medium mb-1">No jobs found</p>
+                <p className="text-sm text-muted-foreground">
+                  Try different keywords or fewer filters.
+                </p>
+              </div>
+            )}
 
-                {/* Initial State */}
-                {!hasSearched && results.length === 0 && !searchMutation.isPending && (
-                  <div className="flex flex-col items-center justify-center text-center py-12 px-6">
-                    <div className="rounded-full bg-blue-500/10 p-3 mb-3">
-                      <GraduationCap className="h-6 w-6 text-blue-500" />
-                    </div>
-                    <p className="text-sm font-medium mb-1">Ready to find your first job?</p>
-                    <p className="text-xs text-muted-foreground">
-                      Enter a job title and click search to find
-                      <br />
-                      internships and entry-level positions
-                    </p>
-                  </div>
-                )}
+            {/* Initial State */}
+            {!hasSearched && results.length === 0 && !searchMutation.isPending && (
+              <div className="flex flex-col items-center justify-center text-center py-16">
+                <div className="rounded-full bg-blue-500/10 p-4 mb-4">
+                  <Linkedin className="h-8 w-8 text-blue-500" />
+                </div>
+                <p className="text-lg font-medium mb-1">Ready to search</p>
+                <p className="text-sm text-muted-foreground">
+                  Enter a job title and click &quot;Search Jobs&quot; to find opportunities on LinkedIn
+                </p>
+              </div>
+            )}
 
-                {/* Loading State */}
-                {searchMutation.isPending && (
-                  <div className="flex flex-col items-center justify-center text-center py-12 px-6">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-3" />
-                    <p className="text-sm text-muted-foreground">
-                      Searching LinkedIn for entry-level jobs...
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+            {/* Loading State */}
+            {searchMutation.isPending && (
+              <div className="flex flex-col items-center justify-center text-center py-16">
+                <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-4" />
+                <p className="text-lg font-medium mb-1">Searching LinkedIn...</p>
+                <p className="text-sm text-muted-foreground">
+                  This may take up to a minute
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </PageTransition>
   );

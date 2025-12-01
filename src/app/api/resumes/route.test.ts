@@ -77,7 +77,6 @@ describe('Resumes API Route', () => {
       expect(response.status).toBe(200)
       expect(data.success).toBe(true)
       expect(data.data).toEqual(mockResumes)
-      expect(data.meta.total).toBe(2)
     })
 
     it('should return empty array when user has no resumes', async () => {
@@ -88,7 +87,6 @@ describe('Resumes API Route', () => {
 
       expect(data.success).toBe(true)
       expect(data.data).toEqual([])
-      expect(data.meta.total).toBe(0)
     })
 
     it('should handle database errors', async () => {

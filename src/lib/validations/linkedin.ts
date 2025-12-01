@@ -3,7 +3,7 @@
  */
 
 import { z } from "zod";
-import { TIME_FRAME_OPTIONS, type TimeFrame, type ExperienceLevel } from "@/lib/linkedin/types";
+import { TIME_FRAME_OPTIONS, type TimeFrame } from "@/lib/linkedin/types";
 
 // =============================================================================
 // SEARCH REQUEST SCHEMA
@@ -23,18 +23,41 @@ export const linkedInSearchSchema = z.object({
     .optional()
     .transform((val) => (val === "" ? undefined : val)),
 
-  // LinkedIn time filters: 24h, 1w, 1m (Apify bebity/linkedin-jobs-scraper supported values)
-  timeFrame: z.enum(["24h", "1w", "1m"] as const),
+  // Company names to filter (optional array)
+  companyName: z
+    .array(z.string().trim())
+    .optional()
+    .transform((val) => (val && val.length === 0 ? undefined : val)),
 
+  // Company IDs to filter (optional array)
+  companyId: z
+    .array(z.string().trim())
+    .optional()
+    .transform((val) => (val && val.length === 0 ? undefined : val)),
+
+  // Time frame filter: "", "24h", "1w", "1m"
+  timeFrame: z.enum(["", "24h", "1w", "1m"] as const).optional(),
+
+  // Experience level: internship, entry_level, associate, mid_senior, director, executive
+  experienceLevel: z
+    .enum(["internship", "entry_level", "associate", "mid_senior", "director", "executive"] as const)
+    .optional(),
+
+  // Workplace type: on_site, remote, hybrid
+  workplaceType: z
+    .enum(["on_site", "remote", "hybrid"] as const)
+    .optional(),
+
+  // Job type: full_time, part_time, contract, temporary, internship, volunteer
+  jobType: z
+    .enum(["full_time", "part_time", "contract", "temporary", "internship", "volunteer"] as const)
+    .optional(),
+
+  // Number of results (max 50)
   limit: z.coerce
     .number()
     .min(1)
-    .max(25) // Apify LinkedIn scraper max is 25
-    .optional(),
-
-  // Experience level filters: internship, entry_level, associate
-  experienceLevels: z
-    .array(z.enum(["internship", "entry_level", "associate"] as const))
+    .max(50)
     .optional(),
 });
 
@@ -75,8 +98,7 @@ export const linkedInSearchResponseSchema = z.object({
       searchParams: z.object({
         keywords: z.string(),
         location: z.string().nullable(),
-        // LinkedIn time filters: 24h, 1w, 1m (Apify supported)
-  timeFrame: z.enum(["24h", "1w", "1m"] as const),
+        timeFrame: z.enum(["", "24h", "1w", "1m"] as const),
       }),
     })
     .optional(),

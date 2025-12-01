@@ -1,6 +1,11 @@
-import { NextResponse } from "next/server";
-import { db, jobs } from "@/lib/db";
+import { db, jobs, applications } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import {
+  successResponse,
+  errorResponse,
+  notFoundResponse,
+  forbiddenResponse,
+} from "@/lib/api";
 
 // GET /api/jobs/:id - Get a specific job
 export async function GET(
@@ -13,23 +18,18 @@ export async function GET(
     const [job] = await db.select().from(jobs).where(eq(jobs.id, id));
 
     if (!job) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Job not found" } },
-        { status: 404 }
-      );
+      return notFoundResponse("Job");
     }
 
-    return NextResponse.json({ success: true, data: job });
+    return successResponse(job);
   } catch (error) {
     console.error("Error fetching job:", error);
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message: "Failed to fetch job" } },
-      { status: 500 }
-    );
+    return errorResponse("FETCH_ERROR", "Failed to fetch job");
   }
 }
 
 // DELETE /api/jobs/:id - Delete a job
+// Security: Only allows deletion of manually-created jobs with no active applications
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -40,20 +40,34 @@ export async function DELETE(
     const [existing] = await db.select().from(jobs).where(eq(jobs.id, id));
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Job not found" } },
-        { status: 404 }
+      return notFoundResponse("Job");
+    }
+
+    // Only allow deletion of manually-created jobs
+    if (existing.platform !== "manual") {
+      return forbiddenResponse(
+        "Cannot delete cached jobs from external platforms"
+      );
+    }
+
+    // Check if any applications reference this job
+    const jobApplications = await db
+      .select()
+      .from(applications)
+      .where(eq(applications.jobId, id))
+      .limit(1);
+
+    if (jobApplications.length > 0) {
+      return forbiddenResponse(
+        "Cannot delete job with existing applications"
       );
     }
 
     await db.delete(jobs).where(eq(jobs.id, id));
 
-    return NextResponse.json({ success: true, data: { deleted: true } });
+    return successResponse({ deleted: true });
   } catch (error) {
     console.error("Error deleting job:", error);
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message: "Failed to delete job" } },
-      { status: 500 }
-    );
+    return errorResponse("DELETE_ERROR", "Failed to delete job");
   }
 }

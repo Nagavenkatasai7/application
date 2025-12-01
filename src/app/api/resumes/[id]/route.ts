@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
 import { db, resumes } from "@/lib/db";
 import { getOrCreateLocalUser } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
+import { successResponse, errorResponse, notFoundResponse } from "@/lib/api";
 
 // GET /api/resumes/:id - Get a specific resume
 export async function GET(
@@ -18,19 +18,13 @@ export async function GET(
       .where(and(eq(resumes.id, id), eq(resumes.userId, user.id)));
 
     if (!resume) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Resume not found" } },
-        { status: 404 }
-      );
+      return notFoundResponse("Resume");
     }
 
-    return NextResponse.json({ success: true, data: resume });
+    return successResponse(resume);
   } catch (error) {
     console.error("Error fetching resume:", error);
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message: "Failed to fetch resume" } },
-      { status: 500 }
-    );
+    return errorResponse("FETCH_ERROR", "Failed to fetch resume");
   }
 }
 
@@ -51,10 +45,7 @@ export async function PATCH(
       .where(and(eq(resumes.id, id), eq(resumes.userId, user.id)));
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Resume not found" } },
-        { status: 404 }
-      );
+      return notFoundResponse("Resume");
     }
 
     await db
@@ -70,13 +61,10 @@ export async function PATCH(
 
     const [updatedResume] = await db.select().from(resumes).where(eq(resumes.id, id));
 
-    return NextResponse.json({ success: true, data: updatedResume });
+    return successResponse(updatedResume);
   } catch (error) {
     console.error("Error updating resume:", error);
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message: "Failed to update resume" } },
-      { status: 500 }
-    );
+    return errorResponse("UPDATE_ERROR", "Failed to update resume");
   }
 }
 
@@ -96,20 +84,14 @@ export async function DELETE(
       .where(and(eq(resumes.id, id), eq(resumes.userId, user.id)));
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Resume not found" } },
-        { status: 404 }
-      );
+      return notFoundResponse("Resume");
     }
 
     await db.delete(resumes).where(eq(resumes.id, id));
 
-    return NextResponse.json({ success: true, data: { deleted: true } });
+    return successResponse({ deleted: true });
   } catch (error) {
     console.error("Error deleting resume:", error);
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message: "Failed to delete resume" } },
-      { status: 500 }
-    );
+    return errorResponse("DELETE_ERROR", "Failed to delete resume");
   }
 }

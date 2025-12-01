@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 import { isApifyConfigured } from "@/lib/env";
 import { searchLinkedInJobs, transformApifyJobs } from "@/lib/linkedin";
 import { linkedInSearchSchema } from "@/lib/validations/linkedin";
-import type { LinkedInSearchResponse, TimeFrame, ExperienceLevel } from "@/lib/linkedin/types";
+import type { LinkedInSearchResponse, TimeFrame } from "@/lib/linkedin/types";
 
 // Allow longer timeout for Apify scraping
 export const maxDuration = 180; // 3 minutes
@@ -52,17 +52,31 @@ export async function POST(request: Request): Promise<NextResponse<LinkedInSearc
       );
     }
 
-    const { keywords, location, timeFrame, limit = 25, experienceLevels } = validation.data;
+    const {
+      keywords,
+      location,
+      timeFrame,
+      experienceLevel,
+      workplaceType,
+      jobType,
+      companyName,
+      companyId,
+      limit = 50
+    } = validation.data;
 
-    console.log(`[LinkedIn Search] Keywords: "${keywords}", Location: "${location || 'any'}", TimeFrame: ${timeFrame}, ExperienceLevels: ${experienceLevels?.join(',') || 'any'}`);
+    console.log(`[LinkedIn Search] Keywords: "${keywords}", Location: "${location || 'any'}", TimeFrame: ${timeFrame || 'any'}, Experience: ${experienceLevel || 'any'}, Workplace: ${workplaceType || 'any'}, JobType: ${jobType || 'any'}`);
 
     // Search LinkedIn jobs via Apify
     const rawJobs = await searchLinkedInJobs({
       keywords,
       location,
       timeFrame: timeFrame as TimeFrame,
+      experienceLevel,
+      workplaceType,
+      jobType,
+      companyName,
+      companyId,
       limit,
-      experienceLevels: experienceLevels as ExperienceLevel[] | undefined,
     });
 
     console.log(`[LinkedIn Search] Found ${rawJobs.length} raw jobs`);
