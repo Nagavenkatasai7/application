@@ -122,15 +122,24 @@ test.describe("Soft Skills Module", () => {
   });
 });
 
-test.describe("Module Navigation from Dashboard", () => {
-  test("should navigate to modules from dashboard cards", async ({ page }) => {
+test.describe("Module Navigation from Landing Page", () => {
+  test("should display module information on landing page", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: /welcome to resume tailor/i })).toBeVisible();
+    // Wait for Framer Motion animations to complete
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(1000);
 
-    // Check that module cards are visible
-    await expect(page.getByText("Uniqueness Extraction")).toBeVisible();
-    await expect(page.getByText("Impact Quantification")).toBeVisible();
-    await expect(page.getByText("Context Alignment")).toBeVisible();
+    // Use .first() because there are two headings matching (hero and CTA section)
+    await expect(page.getByRole("heading", { name: /land your dream job/i }).first()).toBeVisible({ timeout: 10000 });
+
+    // Scroll to features section to trigger animations
+    await page.locator("#features").scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+
+    // Check that feature cards mentioning modules are visible on landing page - use first() due to possible multiple matches
+    await expect(page.getByText("AI Resume Tailoring").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Impact Quantification").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Context Alignment").first()).toBeVisible({ timeout: 10000 });
   });
 });
 

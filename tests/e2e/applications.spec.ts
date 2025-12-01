@@ -64,7 +64,8 @@ test.describe("Applications Page Sidebar Integration", () => {
   test("should navigate to applications from sidebar", async ({ page, isMobile }) => {
     test.skip(isMobile, "Sidebar navigation test is for desktop only");
 
-    await page.goto("/");
+    // Start from a dashboard route where sidebar is visible
+    await page.goto("/jobs");
 
     // Find Applications link in sidebar and click
     const applicationsLink = page.locator('[data-sidebar="menu"]').getByRole("link", { name: /applications/i });

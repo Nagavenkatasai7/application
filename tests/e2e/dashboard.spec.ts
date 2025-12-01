@@ -1,91 +1,102 @@
 // tests/e2e/dashboard.spec.ts
+/**
+ * Landing Page / Dashboard E2E Tests
+ *
+ * Note: Without authentication, "/" shows the landing page.
+ * These tests validate the public landing page content.
+ * Dashboard-specific features require authentication (tested separately).
+ */
 import { test, expect } from '@playwright/test'
 
-test.describe('Dashboard', () => {
-  test('should load the dashboard page', async ({ page }) => {
+test.describe('Landing Page', () => {
+  // Landing page uses Framer Motion animations - wait for them to complete
+  test.beforeEach(async ({ page }) => {
     await page.goto('/')
-
-    // Check for the welcome heading
-    await expect(page.getByRole('heading', { name: /welcome to resume tailor/i })).toBeVisible()
+    // Wait for network to be idle and animations to complete
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000) // Wait for Framer Motion animations
   })
 
-  test('should display quick action cards', async ({ page }) => {
-    await page.goto('/')
-
-    // Check for quick action cards
-    await expect(page.getByText('Upload Resume')).toBeVisible()
-    await expect(page.getByText('Import Job')).toBeVisible()
-    await expect(page.getByText('Tailor Resume')).toBeVisible()
+  test('should load the landing page', async ({ page }) => {
+    // Check for the hero heading on landing page - with increased timeout for animations
+    // Use .first() because there are two headings matching (hero and CTA section)
+    await expect(page.getByRole('heading', { name: /land your dream job/i }).first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('should display stats overview section', async ({ page }) => {
-    await page.goto('/')
-
-    // Check for stats section
-    await expect(page.getByRole('heading', { name: /overview/i })).toBeVisible()
-    // Use more specific selectors to avoid matching multiple elements
-    await expect(page.getByText('Total resumes created')).toBeVisible()
-    await expect(page.getByText('Jobs Saved')).toBeVisible()
-    await expect(page.getByText('Applications tracked')).toBeVisible()
+  test('should display hero section with AI badge', async ({ page }) => {
+    // Check for AI badge with increased timeout - use first() due to multiple matches
+    await expect(page.getByText('AI-Powered Resume Optimization').first()).toBeVisible({ timeout: 10000 })
+    // Check for CTA button
+    await expect(page.getByRole('link', { name: /get started free/i }).first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('should display analysis modules preview', async ({ page }) => {
-    await page.goto('/')
+  test('should display features section', async ({ page }) => {
+    // Scroll to features section to trigger animations
+    await page.locator('#features').scrollIntoViewIfNeeded()
+    await page.waitForTimeout(500)
 
-    // Check for analysis modules section
-    await expect(page.getByRole('heading', { name: /analysis modules/i })).toBeVisible()
-    await expect(page.getByText('Uniqueness Extraction')).toBeVisible()
-    await expect(page.getByText('Impact Quantification')).toBeVisible()
-    await expect(page.getByText('Context Alignment')).toBeVisible()
+    // Check for features with increased timeout - use first() due to possible multiple matches
+    await expect(page.getByText('AI Resume Tailoring').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Impact Quantification').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Context Alignment').first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('should have working sidebar navigation', async ({ page, isMobile }) => {
-    // Skip on mobile - sidebar is hidden and accessed via drawer
-    test.skip(isMobile, 'Sidebar navigation test is for desktop only')
+  test('should display pricing section', async ({ page }) => {
+    // Scroll to pricing section to trigger animations
+    await page.locator('#pricing').scrollIntoViewIfNeeded()
+    await page.waitForTimeout(500)
 
-    await page.goto('/')
-
-    // Check sidebar is visible on desktop
-    const sidebar = page.locator('[data-sidebar="sidebar"]')
-    await expect(sidebar).toBeVisible()
-
-    // Check for navigation items
-    await expect(page.getByText('Dashboard')).toBeVisible()
+    // Check for pricing tiers with increased timeout
+    await expect(page.getByRole('heading', { name: /simple, transparent pricing/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Free').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Pro').first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('should toggle sidebar', async ({ page }) => {
-    await page.goto('/')
+  test('should display FAQ section', async ({ page }) => {
+    // Scroll to FAQ section to trigger animations
+    await page.locator('#faq').scrollIntoViewIfNeeded()
+    await page.waitForTimeout(500)
 
-    // Find and click the sidebar trigger
+    // Check for FAQ section with increased timeout
+    await expect(page.getByRole('heading', { name: /frequently asked questions/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('How does AI resume tailoring work?')).toBeVisible({ timeout: 10000 })
+  })
+
+  test('should toggle sidebar on dashboard routes', async ({ page }) => {
+    // Go to a dashboard route first
+    await page.goto('/jobs')
+    await page.waitForLoadState('networkidle')
+
+    // Find and click the sidebar trigger if visible
     const trigger = page.locator('[data-sidebar="trigger"]')
 
-    if (await trigger.isVisible()) {
+    if (await trigger.isVisible({ timeout: 5000 }).catch(() => false)) {
       await trigger.click()
-
-      // Give animation time to complete
       await page.waitForTimeout(300)
     }
   })
 })
 
-test.describe('Navigation', () => {
-  test('should navigate to resumes page from quick action', async ({ page }) => {
+test.describe('Landing Page Navigation', () => {
+  test('should navigate to login from Get Started button', async ({ page }) => {
     await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000) // Wait for animations
 
-    // Click the card's link directly (not the title text)
-    await page.locator('a[href="/resumes"]').first().click()
+    // Click the Get Started Free link with increased timeout
+    await page.getByRole('link', { name: /get started free/i }).first().click({ timeout: 10000 })
 
-    // Should navigate to resumes page
-    await expect(page).toHaveURL(/\/resumes/)
+    // Should navigate to login page
+    await expect(page).toHaveURL(/\/login/)
   })
 
-  test('should navigate to jobs page from quick action', async ({ page }) => {
+  test('should have See How It Works link to features section', async ({ page }) => {
     await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000) // Wait for animations
 
-    // Click the card's link directly (not the title text)
-    await page.locator('a[href="/jobs"]').first().click()
-
-    // Should navigate to jobs page
-    await expect(page).toHaveURL(/\/jobs/)
+    // Check for the See How It Works link
+    const howItWorksLink = page.getByRole('link', { name: /see how it works/i })
+    await expect(howItWorksLink).toBeVisible({ timeout: 10000 })
   })
 })

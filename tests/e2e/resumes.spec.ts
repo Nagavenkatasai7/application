@@ -143,7 +143,8 @@ test.describe("Resumes Page Sidebar Integration", () => {
   test("should navigate to resumes from sidebar", async ({ page, isMobile }) => {
     test.skip(isMobile, "Sidebar navigation test is for desktop only");
 
-    await page.goto("/");
+    // Start from a dashboard route where sidebar is visible
+    await page.goto("/jobs");
 
     // Find Resumes link in sidebar and click
     const resumesLink = page.locator('[data-sidebar="menu"]').getByRole("link", { name: /resumes/i });

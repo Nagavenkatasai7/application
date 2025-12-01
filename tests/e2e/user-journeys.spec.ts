@@ -312,32 +312,34 @@ test.describe("User Journey: Multi-Resume Management", () => {
   });
 });
 
-test.describe("User Journey: Dashboard Quick Actions", () => {
-  test("should navigate through dashboard quick actions", async ({ page }) => {
-    // Start at dashboard
+test.describe("User Journey: Landing Page Navigation", () => {
+  test("should navigate through landing page CTAs", async ({ page }) => {
+    // Start at landing page
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: /welcome to resume tailor/i })).toBeVisible();
+    // Wait for Framer Motion animations to complete
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(1000);
 
-    // Click Upload Resume quick action
-    await page.locator('a[href="/resumes"]').first().click();
-    await expect(page).toHaveURL(/\/resumes/);
-    await expect(page.getByRole("heading", { name: /resumes/i, level: 1 })).toBeVisible();
+    // Use .first() because there are two headings matching (hero and CTA section)
+    await expect(page.getByRole("heading", { name: /land your dream job/i }).first()).toBeVisible({ timeout: 10000 });
 
-    // Go back to dashboard
+    // Click Get Started Free CTA - should go to login
+    await page.getByRole("link", { name: /get started free/i }).first().click({ timeout: 10000 });
+    await expect(page).toHaveURL(/\/login/);
+
+    // Go back to landing page
     await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(1000);
 
-    // Click Import Job quick action
-    await page.locator('a[href="/jobs"]').first().click();
-    await expect(page).toHaveURL(/\/jobs/);
-    await expect(page.getByRole("heading", { name: /jobs/i, level: 1 })).toBeVisible();
+    // Scroll to features section
+    await page.locator("#features").scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
 
-    // Go back to dashboard
-    await page.goto("/");
-
-    // Verify analysis modules are visible
-    await expect(page.getByText("Uniqueness Extraction")).toBeVisible();
-    await expect(page.getByText("Impact Quantification")).toBeVisible();
-    await expect(page.getByText("Context Alignment")).toBeVisible();
+    // Verify features are visible on landing page - use first() due to possible multiple matches
+    await expect(page.getByText("AI Resume Tailoring").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Impact Quantification").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Context Alignment").first()).toBeVisible({ timeout: 10000 });
   });
 });
 
