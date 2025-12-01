@@ -9,7 +9,6 @@ import type {
   LinkedInSearchParams,
   ApifyRunResponse,
   ApifyLinkedInJob,
-  TIME_FRAME_OPTIONS,
 } from "./types";
 
 // =============================================================================
