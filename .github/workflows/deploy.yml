@@ -86,17 +86,29 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           # Use Vercel REST API to add env vars (more reliable than CLI)
+          # Only create if not exists to avoid propagation delays from delete/recreate
 
-          # Delete existing env vars to recreate them
-          echo "Removing existing env vars..."
-          ENVS=$(curl -s "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
-            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]? | select(.key == "ANTHROPIC_API_KEY" or .key == "AI_PROVIDER" or .key == "AI_TIMEOUT" or .key == "POSTGRES_URL" or .key == "APIFY_API_KEY" or .key == "AUTH_SECRET" or .key == "AUTH_RESEND_KEY" or .key == "EMAIL_FROM" or .key == "AUTH_TRUST_HOST") | .id')
+          # Get existing env vars
+          echo "Checking existing env vars..."
+          EXISTING=$(curl -s "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.envs[]?.key // empty')
 
-          for ID in $ENVS; do
-            curl -s -X DELETE "https://api.vercel.com/v8/projects/$VERCEL_PROJECT_ID/env/$ID?teamId=$VERCEL_ORG_ID" \
-              -H "Authorization: Bearer $VERCEL_TOKEN"
-            echo "Deleted env var with id: $ID"
-          done
+          # Helper function to add env var only if it doesn't exist
+          add_env_if_missing() {
+            local key=$1
+            local value=$2
+            local type=$3
+
+            if echo "$EXISTING" | grep -q "^${key}$"; then
+              echo "Skipping $key (already exists)"
+            else
+              echo "Adding $key..."
+              curl -s -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" \
+                -H "Authorization: Bearer $VERCEL_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{\"key\":\"$key\",\"value\":\"$value\",\"type\":\"$type\",\"target\":[\"production\",\"preview\",\"development\"]}"
+            fi
+          }
 
           # Add ANTHROPIC_API_KEY
           echo "Adding ANTHROPIC_API_KEY..."
@@ -168,21 +180,13 @@ jobs:
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=${{ github.event.inputs.environment || 'production' }} --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Build Project Artifacts
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          AI_PROVIDER: anthropic
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-          APIFY_API_KEY: ${{ secrets.APIFY_API_KEY }}
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          AUTH_RESEND_KEY: ${{ secrets.AUTH_RESEND_KEY }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-        run: vercel build ${{ (github.event_name == 'push' || github.event.inputs.environment == 'production') && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
-
       - name: Deploy to Vercel
         id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          URL=$(vercel deploy --prebuilt ${{ (github.event_name == 'push' || github.event.inputs.environment == 'production') && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }})
+          # Deploy directly to Vercel (not prebuilt) to pick up runtime env vars
+          URL=$(vercel deploy ${{ (github.event_name == 'push' || github.event.inputs.environment == 'production') && '--prod' || '' }} --token=$VERCEL_TOKEN --yes)
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Deployed to: $URL"
 
