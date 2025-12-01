@@ -23,8 +23,8 @@ export const linkedInSearchSchema = z.object({
     .optional()
     .transform((val) => (val === "" ? undefined : val)),
 
-  // LinkedIn time filters: 1h, 24h, 1w, 1m
-  timeFrame: z.enum(["1h", "24h", "1w", "1m"] as const),
+  // LinkedIn time filters: 24h, 1w, 1m (Apify bebity/linkedin-jobs-scraper supported values)
+  timeFrame: z.enum(["24h", "1w", "1m"] as const),
 
   limit: z.coerce
     .number()
@@ -75,8 +75,8 @@ export const linkedInSearchResponseSchema = z.object({
       searchParams: z.object({
         keywords: z.string(),
         location: z.string().nullable(),
-        // LinkedIn time filters: 1h, 24h, 1w, 1m
-  timeFrame: z.enum(["1h", "24h", "1w", "1m"] as const),
+        // LinkedIn time filters: 24h, 1w, 1m (Apify supported)
+  timeFrame: z.enum(["24h", "1w", "1m"] as const),
       }),
     })
     .optional(),

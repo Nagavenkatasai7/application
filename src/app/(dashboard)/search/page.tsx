@@ -57,7 +57,7 @@ const entryLevelSearchSchema = z.object({
     .trim()
     .optional()
     .transform((val) => (val === "" ? undefined : val)),
-  timeFrame: z.enum(["1h", "24h", "1w", "1m"] as const),
+  timeFrame: z.enum(["24h", "1w", "1m"] as const),
   // Single experience level - Apify only accepts one value
   experienceLevel: z.enum(["internship", "entry_level", "associate"] as const),
   limit: z.coerce.number().min(1).max(25).optional(),

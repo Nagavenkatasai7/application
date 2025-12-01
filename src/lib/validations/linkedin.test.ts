@@ -96,8 +96,8 @@ describe("linkedInSearchSchema", () => {
   });
 
   describe("timeFrame validation", () => {
-    // LinkedIn time filters: 1h, 24h, 1w, 1m
-    it.each(["1h", "24h", "1w", "1m"] as const)(
+    // LinkedIn time filters: 24h, 1w, 1m (Apify supported values)
+    it.each(["24h", "1w", "1m"] as const)(
       "should accept timeFrame: %s",
       (timeFrame) => {
         const result = linkedInSearchSchema.parse({
@@ -268,10 +268,6 @@ describe("linkedInSearchResponseSchema", () => {
 });
 
 describe("getTimeFrameLabel", () => {
-  it("should return 'Past hour' for '1h'", () => {
-    expect(getTimeFrameLabel("1h")).toBe("Past hour");
-  });
-
   it("should return 'Past 24 hours' for '24h'", () => {
     expect(getTimeFrameLabel("24h")).toBe("Past 24 hours");
   });
