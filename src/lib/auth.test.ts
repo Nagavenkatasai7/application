@@ -59,7 +59,7 @@ describe('Auth Module', () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: 'user-123', email: 'test@example.com', name: 'Test User' },
         expires: new Date().toISOString(),
-      } as any)
+      } as unknown as Awaited<ReturnType<typeof auth>>)
 
       const user = await getAuthUser()
 
@@ -93,7 +93,7 @@ describe('Auth Module', () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: 'user-123', email: 'test@example.com', name: 'Test User' },
         expires: new Date().toISOString(),
-      } as any)
+      } as unknown as Awaited<ReturnType<typeof auth>>)
 
       mockSelectWhere.mockResolvedValue([mockUser])
 
