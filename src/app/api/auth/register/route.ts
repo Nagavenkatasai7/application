@@ -80,8 +80,13 @@ export async function POST(request: Request) {
         });
       }
 
-      // Send verification email
-      await sendVerificationEmail(normalizedEmail, verificationToken);
+      // Send verification email (wrapped in try-catch to prevent registration failures)
+      try {
+        await sendVerificationEmail(normalizedEmail, verificationToken);
+      } catch (emailError) {
+        console.error("Failed to send verification email:", emailError);
+        // Still return success - user can request new verification email later
+      }
 
       return successResponse({
         message: "Please check your email to verify your account",
@@ -106,8 +111,13 @@ export async function POST(request: Request) {
       updatedAt: new Date(),
     });
 
-    // Send verification email
-    await sendVerificationEmail(normalizedEmail, verificationToken);
+    // Send verification email (wrapped in try-catch to prevent registration failures)
+    try {
+      await sendVerificationEmail(normalizedEmail, verificationToken);
+    } catch (emailError) {
+      console.error("Failed to send verification email:", emailError);
+      // Still return success - user can request new verification email later
+    }
 
     return successResponse(
       {

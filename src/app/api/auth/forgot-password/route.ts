@@ -71,16 +71,20 @@ export async function POST(request: Request) {
         })
         .where(eq(users.id, user.id));
 
-      // Send reset link email
+      // Send reset link email (wrapped in try-catch to prevent request failures)
       const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/reset-password?token=${resetToken}`;
-      const resend = getResendClient();
-
-      await resend.emails.send({
-        from: process.env.EMAIL_FROM || "onboarding@resend.dev",
-        to: normalizedEmail,
-        subject: "Reset your password",
-        react: PasswordResetLinkEmail({ resetUrl }),
-      });
+      try {
+        const resend = getResendClient();
+        await resend.emails.send({
+          from: process.env.EMAIL_FROM || "onboarding@resend.dev",
+          to: normalizedEmail,
+          subject: "Reset your password",
+          react: PasswordResetLinkEmail({ resetUrl }),
+        });
+      } catch (emailError) {
+        console.error("Failed to send password reset email:", emailError);
+        // Still return success to prevent email enumeration
+      }
     } else {
       // Generate security code
       const resetCode = generateSecurityCode();
@@ -96,14 +100,19 @@ export async function POST(request: Request) {
         })
         .where(eq(users.id, user.id));
 
-      // Send code email
-      const resend = getResendClient();
-      await resend.emails.send({
-        from: process.env.EMAIL_FROM || "onboarding@resend.dev",
-        to: normalizedEmail,
-        subject: "Your password reset code",
-        react: PasswordResetCodeEmail({ code: resetCode }),
-      });
+      // Send code email (wrapped in try-catch to prevent request failures)
+      try {
+        const resend = getResendClient();
+        await resend.emails.send({
+          from: process.env.EMAIL_FROM || "onboarding@resend.dev",
+          to: normalizedEmail,
+          subject: "Your password reset code",
+          react: PasswordResetCodeEmail({ code: resetCode }),
+        });
+      } catch (emailError) {
+        console.error("Failed to send password reset code email:", emailError);
+        // Still return success to prevent email enumeration
+      }
     }
 
     return successResponse({

@@ -10,6 +10,7 @@ import { db, sessions } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { successResponse, errorResponse, unauthorizedResponse } from "@/lib/api";
 import { eq, and, ne } from "drizzle-orm";
+import { cookies } from "next/headers";
 
 // GET /api/users/sessions - List all active sessions
 export async function GET(request: Request) {
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
 
     // Get current session token from cookies
     const session = await auth();
-    const currentSessionToken = session?.user?.id ? await getCurrentSessionToken(request) : null;
+    const currentSessionToken = session?.user?.id ? await getCurrentSessionToken() : null;
 
     // Get all sessions for this user
     const userSessions = await db
@@ -58,7 +59,7 @@ export async function DELETE(request: Request) {
     const authUser = await requireAuth();
 
     // Get current session token
-    const currentSessionToken = await getCurrentSessionToken(request);
+    const currentSessionToken = await getCurrentSessionToken();
 
     if (!currentSessionToken) {
       return errorResponse("SESSION_NOT_FOUND", "Current session not found", 400);
@@ -87,26 +88,20 @@ export async function DELETE(request: Request) {
 }
 
 // Helper: Get current session token from request cookies
-async function getCurrentSessionToken(request: Request): Promise<string | null> {
-  const cookieHeader = request.headers.get("cookie");
-  if (!cookieHeader) return null;
+async function getCurrentSessionToken(): Promise<string | null> {
+  // Use Next.js cookies() API for proper cookie parsing
+  const cookieStore = await cookies();
 
-  // Parse cookies to find session token
-  // NextAuth v5 uses 'authjs.session-token' or 'next-auth.session-token'
-  const cookies = Object.fromEntries(
-    cookieHeader.split("; ").map((c) => {
-      const [key, ...val] = c.split("=");
-      return [key, val.join("=")];
-    })
-  );
+  // NextAuth v5 uses 'authjs.session-token' or '__Secure-authjs.session-token'
+  // Try each possible cookie name in order of preference
+  const sessionToken =
+    cookieStore.get("authjs.session-token")?.value ||
+    cookieStore.get("__Secure-authjs.session-token")?.value ||
+    cookieStore.get("next-auth.session-token")?.value ||
+    cookieStore.get("__Secure-next-auth.session-token")?.value ||
+    null;
 
-  return (
-    cookies["authjs.session-token"] ||
-    cookies["__Secure-authjs.session-token"] ||
-    cookies["next-auth.session-token"] ||
-    cookies["__Secure-next-auth.session-token"] ||
-    null
-  );
+  return sessionToken;
 }
 
 // Helper: Mask session token for display (show only last 8 chars)
