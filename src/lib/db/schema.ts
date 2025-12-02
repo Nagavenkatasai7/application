@@ -20,47 +20,64 @@ export const experienceLevels = ["entry", "mid", "senior", "lead", "executive"] 
 export type ExperienceLevel = (typeof experienceLevels)[number];
 
 // Users table (modified for NextAuth.js compatibility)
-export const users = pgTable("users", {
-  id: text("id").primaryKey(), // UUID
-  email: text("email").unique().notNull(),
-  name: text("name"),
-  emailVerified: timestamp("email_verified", { mode: "date" }), // NextAuth.js
-  image: text("image"), // NextAuth.js (for OAuth avatars)
-  termsAgreedAt: timestamp("terms_agreed_at", { mode: "date" }), // When user accepted terms
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+export const users = pgTable(
+  "users",
+  {
+    id: text("id").primaryKey(), // UUID
+    email: text("email").unique().notNull(),
+    name: text("name"),
+    emailVerified: timestamp("email_verified", { mode: "date" }), // NextAuth.js
+    image: text("image"), // NextAuth.js (for OAuth avatars)
+    termsAgreedAt: timestamp("terms_agreed_at", { mode: "date" }), // When user accepted terms
+    createdAt: timestamp("created_at").notNull().defaultNow(),
 
-  // Professional info
-  jobTitle: text("job_title"),
-  experienceLevel: text("experience_level").$type<ExperienceLevel>(), // entry, mid, senior, lead, executive
-  skills: jsonb("skills").$type<string[]>().default([]),
-  preferredIndustries: jsonb("preferred_industries").$type<string[]>().default([]),
+    // Professional info
+    jobTitle: text("job_title"),
+    experienceLevel: text("experience_level").$type<ExperienceLevel>(), // entry, mid, senior, lead, executive
+    skills: jsonb("skills").$type<string[]>().default([]),
+    preferredIndustries: jsonb("preferred_industries").$type<string[]>().default([]),
 
-  // Extended info
-  city: text("city"),
-  country: text("country"),
-  bio: text("bio"),
-  linkedinUrl: text("linkedin_url"),
-  githubUrl: text("github_url"),
+    // Extended info
+    city: text("city"),
+    country: text("country"),
+    bio: text("bio"),
+    linkedinUrl: text("linkedin_url"),
+    githubUrl: text("github_url"),
 
-  // Profile picture (Vercel Blob URL)
-  profilePictureUrl: text("profile_picture_url"),
+    // Profile picture (Vercel Blob URL)
+    profilePictureUrl: text("profile_picture_url"),
 
-  // Updated timestamp
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    // Updated timestamp
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
 
-  // Password authentication (nullable for magic-link-only users)
-  password: text("password"), // bcrypt hashed password
-  passwordChangedAt: timestamp("password_changed_at", { mode: "date" }),
+    // Password authentication (nullable for magic-link-only users)
+    password: text("password"), // bcrypt hashed password
+    passwordChangedAt: timestamp("password_changed_at", { mode: "date" }),
 
-  // Email verification for password signups
-  emailVerificationToken: text("email_verification_token"),
-  emailVerificationExpires: timestamp("email_verification_expires", { mode: "date" }),
+    // Email verification for password signups
+    emailVerificationToken: text("email_verification_token"),
+    emailVerificationExpires: timestamp("email_verification_expires", { mode: "date" }),
 
-  // Password reset
-  passwordResetToken: text("password_reset_token"),
-  passwordResetExpires: timestamp("password_reset_expires", { mode: "date" }),
-  passwordResetCode: text("password_reset_code"), // 6-digit security code
-});
+    // Password reset
+    passwordResetToken: text("password_reset_token"),
+    passwordResetExpires: timestamp("password_reset_expires", { mode: "date" }),
+    passwordResetCode: text("password_reset_code"), // 6-digit security code
+
+    // Brute force protection for password reset
+    passwordResetAttempts: integer("password_reset_attempts").default(0),
+    passwordResetLockoutUntil: timestamp("password_reset_lockout_until", { mode: "date" }),
+
+    // Brute force protection for login
+    failedLoginAttempts: integer("failed_login_attempts").default(0),
+    loginLockoutUntil: timestamp("login_lockout_until", { mode: "date" }),
+  },
+  (table) => [
+    // Index for email verification token lookups
+    index("users_email_verification_token_idx").on(table.emailVerificationToken),
+    // Index for password reset token lookups
+    index("users_password_reset_token_idx").on(table.passwordResetToken),
+  ]
+);
 
 // Accounts table (for OAuth providers - required by NextAuth.js)
 export const accounts = pgTable(
@@ -82,17 +99,23 @@ export const accounts = pgTable(
   },
   (account) => [
     primaryKey({ columns: [account.provider, account.providerAccountId] }),
+    // Index for looking up accounts by user
+    index("accounts_user_idx").on(account.userId),
   ]
 );
 
 // Sessions table (for database sessions - required by NextAuth.js)
-export const sessions = pgTable("sessions", {
-  sessionToken: text("session_token").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expires: timestamp("expires", { mode: "date" }).notNull(),
-});
+export const sessions = pgTable(
+  "sessions",
+  {
+    sessionToken: text("session_token").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expires: timestamp("expires", { mode: "date" }).notNull(),
+  },
+  (table) => [index("sessions_user_idx").on(table.userId)]
+);
 
 // Verification tokens table (REQUIRED for magic link authentication)
 export const verificationTokens = pgTable(

@@ -69,6 +69,12 @@ export function createMockUser(overrides: UserOverrides = {}): User {
     passwordResetToken: null,
     passwordResetExpires: null,
     passwordResetCode: null,
+    // Brute force protection fields for password reset
+    passwordResetAttempts: 0,
+    passwordResetLockoutUntil: null,
+    // Brute force protection fields for login
+    failedLoginAttempts: 0,
+    loginLockoutUntil: null,
     ...overrides,
   };
 }
