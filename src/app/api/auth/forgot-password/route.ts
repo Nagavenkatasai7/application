@@ -19,7 +19,10 @@ import {
 import { PasswordResetLinkEmail } from "@/lib/email/templates/password-reset-link";
 import { PasswordResetCodeEmail } from "@/lib/email/templates/password-reset-code";
 
-const resend = new Resend(process.env.AUTH_RESEND_KEY);
+// Lazy-load Resend client to avoid build-time initialization errors
+function getResendClient(): Resend {
+  return new Resend(process.env.AUTH_RESEND_KEY);
+}
 
 export async function POST(request: Request) {
   try {
@@ -70,6 +73,7 @@ export async function POST(request: Request) {
 
       // Send reset link email
       const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/reset-password?token=${resetToken}`;
+      const resend = getResendClient();
 
       await resend.emails.send({
         from: process.env.EMAIL_FROM || "onboarding@resend.dev",
@@ -93,6 +97,7 @@ export async function POST(request: Request) {
         .where(eq(users.id, user.id));
 
       // Send code email
+      const resend = getResendClient();
       await resend.emails.send({
         from: process.env.EMAIL_FROM || "onboarding@resend.dev",
         to: normalizedEmail,

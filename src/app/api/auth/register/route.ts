@@ -18,7 +18,10 @@ import {
 } from "@/lib/auth/password";
 import { VerificationEmail } from "@/lib/email/templates/verification-email";
 
-const resend = new Resend(process.env.AUTH_RESEND_KEY);
+// Lazy-load Resend client to avoid build-time initialization errors
+function getResendClient(): Resend {
+  return new Resend(process.env.AUTH_RESEND_KEY);
+}
 
 export async function POST(request: Request) {
   try {
@@ -125,6 +128,7 @@ export async function POST(request: Request) {
 
 async function sendVerificationEmail(email: string, token: string) {
   const verificationUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/verify-email?token=${token}`;
+  const resend = getResendClient();
 
   await resend.emails.send({
     from: process.env.EMAIL_FROM || "onboarding@resend.dev",
