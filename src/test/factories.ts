@@ -61,6 +61,14 @@ export function createMockUser(overrides: UserOverrides = {}): User {
     githubUrl: null,
     profilePictureUrl: null,
     updatedAt: new Date(),
+    // Password authentication fields
+    password: null,
+    passwordChangedAt: null,
+    emailVerificationToken: null,
+    emailVerificationExpires: null,
+    passwordResetToken: null,
+    passwordResetExpires: null,
+    passwordResetCode: null,
     ...overrides,
   };
 }

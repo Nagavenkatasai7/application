@@ -1,13 +1,15 @@
 /**
  * NextAuth.js Configuration
  *
- * Magic Link (passwordless email) authentication using Resend.
+ * Hybrid authentication: Magic Link (Resend) + Password (Credentials).
  * Uses Drizzle adapter for database sessions.
  */
 
 import NextAuth from "next-auth";
 import Resend from "next-auth/providers/resend";
+import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   users,
@@ -15,6 +17,8 @@ import {
   sessions,
   verificationTokens,
 } from "@/lib/db/schema";
+import { verifyPassword } from "@/lib/auth/password";
+import { loginWithPasswordSchema } from "@/lib/validations/auth";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db, {
@@ -24,8 +28,58 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verificationTokensTable: verificationTokens,
   }),
   providers: [
+    // Magic link provider (passwordless email)
     Resend({
       from: process.env.EMAIL_FROM || "onboarding@resend.dev",
+    }),
+
+    // Password-based authentication
+    Credentials({
+      id: "credentials",
+      name: "Password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        // Validate input
+        const parsed = loginWithPasswordSchema.safeParse(credentials);
+        if (!parsed.success) {
+          return null;
+        }
+
+        const { email, password } = parsed.data;
+
+        // Find user by email
+        const user = await db.query.users.findFirst({
+          where: eq(users.email, email.toLowerCase()),
+        });
+
+        // User not found or no password set (magic-link-only user)
+        if (!user || !user.password) {
+          return null;
+        }
+
+        // Verify password
+        const isValidPassword = await verifyPassword(password, user.password);
+        if (!isValidPassword) {
+          return null;
+        }
+
+        // Check if email is verified (required for password users)
+        if (!user.emailVerified) {
+          // Throw a specific error to be handled by the client
+          throw new Error("EMAIL_NOT_VERIFIED");
+        }
+
+        // Return user object for session
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        };
+      },
     }),
   ],
   pages: {

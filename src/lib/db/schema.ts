@@ -47,6 +47,19 @@ export const users = pgTable("users", {
 
   // Updated timestamp
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+
+  // Password authentication (nullable for magic-link-only users)
+  password: text("password"), // bcrypt hashed password
+  passwordChangedAt: timestamp("password_changed_at", { mode: "date" }),
+
+  // Email verification for password signups
+  emailVerificationToken: text("email_verification_token"),
+  emailVerificationExpires: timestamp("email_verification_expires", { mode: "date" }),
+
+  // Password reset
+  passwordResetToken: text("password_reset_token"),
+  passwordResetExpires: timestamp("password_reset_expires", { mode: "date" }),
+  passwordResetCode: text("password_reset_code"), // 6-digit security code
 });
 
 // Accounts table (for OAuth providers - required by NextAuth.js)

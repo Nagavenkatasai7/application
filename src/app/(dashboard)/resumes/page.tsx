@@ -174,7 +174,7 @@ export default function ResumesPage() {
         )}
 
         {/* Resume Count */}
-        {data && data.data.length > 0 && (
+        {data && data.data.length > 0 && data.meta && (
           <p className="text-sm text-muted-foreground text-center">
             {data.meta.total} resume{data.meta.total !== 1 ? "s" : ""} uploaded
           </p>
