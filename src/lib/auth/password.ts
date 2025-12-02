@@ -26,12 +26,17 @@ export async function verifyPassword(
 }
 
 /**
- * Generate a 6-digit security code for password reset
+ * Generate a cryptographically secure 6-digit security code for password reset
+ * Uses crypto.getRandomValues() instead of Math.random() for security
  * @returns 6-digit string code
  */
 export function generateSecurityCode(): string {
-  // Generate a random 6-digit code (100000-999999)
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // Generate a cryptographically secure random 6-digit code (100000-999999)
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  // Use modulo to get a number in range 0-899999, then add 100000
+  const code = 100000 + (array[0] % 900000);
+  return code.toString();
 }
 
 /**

@@ -101,6 +101,10 @@ async function handleTokenReset(body: unknown) {
   });
 }
 
+// Brute force protection constants
+const MAX_RESET_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
 async function handleCodeReset(body: unknown) {
   // Validate input
   const parsed = resetPasswordWithCodeSchema.safeParse(body);
@@ -115,7 +119,7 @@ async function handleCodeReset(body: unknown) {
   const { email, code, newPassword } = parsed.data;
   const normalizedEmail = email.toLowerCase().trim();
 
-  // Find user with matching email and code
+  // Find user with matching email
   const user = await db.query.users.findFirst({
     where: eq(users.email, normalizedEmail),
   });
@@ -128,11 +132,47 @@ async function handleCodeReset(body: unknown) {
     );
   }
 
+  // Check if user is locked out due to too many failed attempts
+  if (user.passwordResetLockoutUntil && new Date() < user.passwordResetLockoutUntil) {
+    const remainingSeconds = Math.ceil(
+      (user.passwordResetLockoutUntil.getTime() - Date.now()) / 1000
+    );
+    return errorResponse(
+      "ACCOUNT_LOCKED",
+      `Too many failed attempts. Please try again in ${Math.ceil(remainingSeconds / 60)} minute(s).`,
+      429
+    );
+  }
+
   // Check code
   if (user.passwordResetCode !== code) {
+    // Increment failed attempts
+    const newAttempts = (user.passwordResetAttempts || 0) + 1;
+    const shouldLockout = newAttempts >= MAX_RESET_ATTEMPTS;
+
+    await db
+      .update(users)
+      .set({
+        passwordResetAttempts: newAttempts,
+        passwordResetLockoutUntil: shouldLockout
+          ? new Date(Date.now() + LOCKOUT_DURATION_MS)
+          : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id));
+
+    if (shouldLockout) {
+      return errorResponse(
+        "ACCOUNT_LOCKED",
+        "Too many failed attempts. Your account is locked for 15 minutes.",
+        429
+      );
+    }
+
+    const attemptsRemaining = MAX_RESET_ATTEMPTS - newAttempts;
     return errorResponse(
       "INVALID_CODE",
-      "Invalid security code. Please try again.",
+      `Invalid security code. ${attemptsRemaining} attempt(s) remaining.`,
       400
     );
   }
@@ -149,7 +189,7 @@ async function handleCodeReset(body: unknown) {
   // Hash new password
   const hashedPassword = await hashPassword(newPassword);
 
-  // Update user password and clear reset tokens
+  // Update user password, clear reset tokens, and reset brute force counters
   await db
     .update(users)
     .set({
@@ -158,6 +198,8 @@ async function handleCodeReset(body: unknown) {
       passwordResetToken: null,
       passwordResetExpires: null,
       passwordResetCode: null,
+      passwordResetAttempts: 0,
+      passwordResetLockoutUntil: null,
       // Mark email as verified (they received the email)
       emailVerified: user.emailVerified || new Date(),
       emailVerificationToken: null,
