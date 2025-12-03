@@ -29,7 +29,7 @@ interface JobCardProps {
 
 export function JobCard({ job, onDelete, onCreateApplication }: JobCardProps) {
   const formattedDate = job.createdAt
-    ? new Date(job.createdAt * 1000).toLocaleDateString("en-US", {
+    ? new Date(job.createdAt).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -80,10 +80,10 @@ export function JobCard({ job, onDelete, onCreateApplication }: JobCardProps) {
                   Create Application
                 </DropdownMenuItem>
               )}
-              {job.externalId && (
+              {job.url && (
                 <DropdownMenuItem asChild>
                   <a
-                    href={`#`}
+                    href={job.url}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

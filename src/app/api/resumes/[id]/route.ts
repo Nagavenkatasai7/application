@@ -57,9 +57,12 @@ export async function PATCH(
         isMaster: body.isMaster ?? existing.isMaster,
         updatedAt: new Date(),
       })
-      .where(eq(resumes.id, id));
+      .where(and(eq(resumes.id, id), eq(resumes.userId, user.id)));
 
-    const [updatedResume] = await db.select().from(resumes).where(eq(resumes.id, id));
+    const [updatedResume] = await db
+      .select()
+      .from(resumes)
+      .where(and(eq(resumes.id, id), eq(resumes.userId, user.id)));
 
     return successResponse(updatedResume);
   } catch (error) {
@@ -87,7 +90,7 @@ export async function DELETE(
       return notFoundResponse("Resume");
     }
 
-    await db.delete(resumes).where(eq(resumes.id, id));
+    await db.delete(resumes).where(and(eq(resumes.id, id), eq(resumes.userId, user.id)));
 
     return successResponse({ deleted: true });
   } catch (error) {

@@ -26,11 +26,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/layout/page-transition";
+import { CircularProgress } from "@/components/ui/circular-progress";
+import { BentoCard } from "@/components/ui/bento-grid";
 import {
   SOFT_SKILLS_LIST,
   getEvidenceScoreLabel,
-  getEvidenceScoreColor,
-  getEvidenceScoreBgColor,
 } from "@/lib/validations/soft-skills";
 
 interface Message {
@@ -357,65 +357,84 @@ export default function SoftSkillsPage() {
             {/* Results - show when complete */}
             {isComplete && evidenceScore && statement && (
               <StaggerItem>
-                <Card className={`border-2 ${getEvidenceScoreBgColor(evidenceScore)}`}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Star className="h-5 w-5 text-amber-500" />
-                      Assessment Complete
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Score */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground uppercase tracking-wide">
-                          Evidence Score
-                        </p>
-                        <div className="flex items-baseline gap-2 mt-1">
-                          <span className={`text-5xl font-bold ${getEvidenceScoreColor(evidenceScore)}`}>
-                            {evidenceScore}
-                          </span>
-                          <span className="text-2xl text-muted-foreground">/5</span>
+                <Card className="overflow-hidden">
+                  <CardContent className="pt-6 space-y-6">
+                    {/* Score Section with CircularProgress */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                      <div className="flex items-center gap-6">
+                        <CircularProgress
+                          value={evidenceScore * 20}
+                          size="xl"
+                          showLabel
+                          animated
+                          celebrate={evidenceScore >= 4}
+                        />
+                        <div>
+                          <p className="text-sm text-muted-foreground uppercase tracking-wide font-medium">
+                            Evidence Score
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="capitalize text-sm px-3 py-1">
+                              {getEvidenceScoreLabel(evidenceScore)}
+                            </Badge>
+                            <div className="flex gap-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-4 w-4 ${
+                                    star <= evidenceScore
+                                      ? "text-amber-500 fill-amber-500"
+                                      : "text-muted-foreground/30"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <p className="mt-3 text-sm text-muted-foreground">
+                            Based on specific examples and evidence you provided
+                          </p>
                         </div>
-                        <Badge variant="outline" className="mt-2">
-                          {getEvidenceScoreLabel(evidenceScore)}
-                        </Badge>
                       </div>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`h-6 w-6 ${
-                              star <= evidenceScore
-                                ? "text-amber-500 fill-amber-500"
-                                : "text-muted-foreground/30"
-                            }`}
-                          />
-                        ))}
+                      <div className="flex items-center gap-2 text-primary">
+                        <Sparkles className="h-5 w-5" />
+                        <span className="font-medium">{selectedSkill}</span>
                       </div>
                     </div>
 
-                    {/* Generated Statement */}
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground uppercase tracking-wide">
-                        Resume Statement
-                      </p>
-                      <div className="p-4 rounded-lg bg-background border relative group">
-                        <p className="text-sm font-medium pr-10">{statement}</p>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={handleCopyStatement}
-                        >
-                          {copied ? (
-                            <Check className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
+                    {/* Generated Statement - Enhanced */}
+                    <BentoCard variant="glass" hover={false} animated>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="h-4 w-4 text-primary" />
+                          <p className="text-xs text-primary uppercase tracking-wide font-medium">
+                            Resume Statement
+                          </p>
+                        </div>
+                        <p className="text-sm font-medium text-foreground leading-relaxed">
+                          {statement}
+                        </p>
+                        <div className="pt-2 border-t border-border/50 flex justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCopyStatement}
+                            className="text-xs"
+                          >
+                            {copied ? (
+                              <>
+                                <Check className="h-3.5 w-3.5 mr-1.5 text-success" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3.5 w-3.5 mr-1.5" />
+                                Copy to Clipboard
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    </BentoCard>
 
                     {/* Action Buttons */}
                     <div className="flex gap-4">

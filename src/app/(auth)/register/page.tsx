@@ -73,8 +73,8 @@ function RegisterForm() {
         return;
       }
 
-      // Redirect to verify-request page
-      window.location.href = `/verify-request?email=${encodeURIComponent(email)}`;
+      // Redirect to verify-request page using router for smooth navigation
+      router.push(`/verify-request?email=${encodeURIComponent(email)}`);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -119,17 +119,14 @@ function RegisterForm() {
         setSuccess(
           "Registration successful! Please check your email to verify your account."
         );
-        // Redirect to a verification pending page after a delay
-        setTimeout(() => {
-          router.push(
-            `/verify-request?email=${encodeURIComponent(email)}&type=verify`
-          );
-        }, 2000);
+        // Redirect to verification page immediately (user can read message there)
+        router.push(
+          `/verify-request?email=${encodeURIComponent(email)}&type=verify`
+        );
       } else {
         setSuccess("Account created! Redirecting to login...");
-        setTimeout(() => {
-          router.push("/login");
-        }, 1500);
+        // Redirect to login immediately
+        router.push("/login");
       }
     } catch {
       setError("Something went wrong. Please try again.");

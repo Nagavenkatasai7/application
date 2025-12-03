@@ -10,10 +10,11 @@ import {
   StaggerItem,
 } from "@/components/layout/page-transition";
 import { JobCard } from "@/components/jobs/job-card";
-import { LinkedInSearchSheet } from "@/components/jobs/linkedin-search-sheet";
-import { Plus, Briefcase } from "lucide-react";
+import { Plus, Briefcase, Clock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { StatCard, StatCardGrid } from "@/components/ui/stat-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import type { JobResponse } from "@/lib/validations/job";
 
@@ -129,15 +130,12 @@ export default function JobsPage() {
               Manage your saved job postings
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <LinkedInSearchSheet />
-            <Button asChild>
-              <Link href="/jobs/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Job
-              </Link>
-            </Button>
-          </div>
+          <Button asChild>
+            <Link href="/jobs/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Job
+            </Link>
+          </Button>
         </div>
 
         {/* Loading State */}
@@ -169,27 +167,53 @@ export default function JobsPage() {
           </Card>
         )}
 
+        {/* Stats Cards - Only show when there are jobs */}
+        {data && data.data.length > 0 && (
+          <StatCardGrid columns={3}>
+            <StatCard
+              label="Total Jobs"
+              value={data.meta.total}
+              icon={<Briefcase />}
+              variant="gradient"
+              size="sm"
+            />
+            <StatCard
+              label="Recent (7 days)"
+              value={data.data.filter(job => {
+                if (!job.createdAt) return false;
+                const createdAt = new Date(job.createdAt);
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return createdAt >= weekAgo;
+              }).length}
+              icon={<Clock />}
+              variant="glass"
+              size="sm"
+            />
+            <StatCard
+              label="Unique Companies"
+              value={new Set(data.data.map(job => job.companyName).filter(Boolean)).size}
+              icon={<Briefcase />}
+              variant="glass"
+              size="sm"
+            />
+          </StatCardGrid>
+        )}
+
         {/* Empty State */}
         {data && data.data.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="py-12 text-center">
-              <div className="flex justify-center mb-4">
-                <div className="rounded-full bg-muted p-3">
-                  <Briefcase className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </div>
-              <h3 className="text-lg font-medium">No jobs saved</h3>
-              <p className="text-muted-foreground mt-1 mb-4">
-                Add a job posting to start tailoring your resume
-              </p>
-              <Button asChild>
-                <Link href="/jobs/new">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Your First Job
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<Briefcase />}
+            title="No jobs saved yet"
+            description="Add job postings to track opportunities and tailor your resume for each position."
+            action={{
+              label: "Add Your First Job",
+              href: "/jobs/new",
+              icon: <Plus className="h-4 w-4" />,
+            }}
+            variant="encourage"
+            tip="Save job postings you're interested in to start tailoring your resume."
+          />
         )}
 
         {/* Jobs Grid */}

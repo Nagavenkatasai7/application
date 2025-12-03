@@ -17,6 +17,20 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "playwright-report/**",
   ]),
+  // Custom rules
+  {
+    rules: {
+      // Allow underscore-prefixed unused variables (common pattern for ignored params)
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

@@ -10,6 +10,9 @@ import {
 } from "@/lib/ai";
 import type { ResumeContent } from "@/lib/validations/resume";
 
+// Vercel serverless timeout (180s for Pro plan, 10s buffer for safety)
+export const maxDuration = 180;
+
 /**
  * POST /api/resumes/:id/tailor - Tailor a resume for a specific job
  *

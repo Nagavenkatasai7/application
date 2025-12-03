@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       .orderBy(desc(applications.createdAt));
 
     // Transform to include nested job/resume objects
-    const transformedApplications = userApplications.map((app) => ({
+    const transformedApplications = userApplications.map((app: typeof userApplications[number]) => ({
       id: app.id,
       userId: app.userId,
       jobId: app.jobId,
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
 
     // Filter by status if provided
     const filtered = status
-      ? transformedApplications.filter((app) => app.status === status)
+      ? transformedApplications.filter((app: typeof transformedApplications[number]) => app.status === status)
       : transformedApplications;
 
     return NextResponse.json({

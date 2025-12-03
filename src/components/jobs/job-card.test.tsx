@@ -8,6 +8,7 @@ const createMockJob = (overrides: Partial<JobResponse> = {}): JobResponse => ({
   id: "job-123",
   platform: "linkedin",
   externalId: null,
+  url: null,
   title: "Software Engineer",
   companyId: null,
   companyName: "Acme Corp",
@@ -18,7 +19,7 @@ const createMockJob = (overrides: Partial<JobResponse> = {}): JobResponse => ({
   salary: "$150,000 - $200,000",
   postedAt: null,
   cachedAt: null,
-  createdAt: 1700000000,
+  createdAt: "2023-11-14T22:13:20.000Z",
   ...overrides,
 });
 
@@ -51,7 +52,7 @@ describe("JobCard Component", () => {
 
     it("should render formatted date when createdAt is provided", () => {
       render(<JobCard job={createMockJob()} />);
-      // 1700000000 is Nov 14, 2023
+      // ISO date 2023-11-14T22:13:20.000Z is Nov 14, 2023
       expect(screen.getByText(/Nov 14, 2023/)).toBeInTheDocument();
     });
 
@@ -176,18 +177,18 @@ describe("JobCard Component", () => {
       expect(screen.getByText("Create Application")).toBeInTheDocument();
     });
 
-    it("should show view original option when externalId is provided", async () => {
+    it("should show view original option when url is provided", async () => {
       const user = userEvent.setup();
-      render(<JobCard job={createMockJob({ externalId: "ext-123" })} />);
+      render(<JobCard job={createMockJob({ url: "https://example.com/job" })} />);
 
       await user.click(screen.getByRole("button", { name: /open menu/i }));
 
       expect(screen.getByText("View Original")).toBeInTheDocument();
     });
 
-    it("should not show view original option when externalId is null", async () => {
+    it("should not show view original option when url is null", async () => {
       const user = userEvent.setup();
-      render(<JobCard job={createMockJob({ externalId: null })} />);
+      render(<JobCard job={createMockJob({ url: null })} />);
 
       await user.click(screen.getByRole("button", { name: /open menu/i }));
 

@@ -196,9 +196,7 @@ describe("ApplicationsPage", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(
-            "Start tracking your job applications by creating one from a saved job"
-          )
+          screen.getByText(/start tracking your job applications/i)
         ).toBeInTheDocument();
       });
     });

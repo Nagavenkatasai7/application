@@ -2,6 +2,7 @@ import { db, resumes } from "@/lib/db";
 import { getOrCreateLocalUser } from "@/lib/auth";
 import { eq, desc } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
+import { NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api";
 
 // GET /api/resumes - List all resumes for current user
@@ -15,7 +16,12 @@ export async function GET() {
       .where(eq(resumes.userId, user.id))
       .orderBy(desc(resumes.updatedAt));
 
-    return successResponse(userResumes);
+    // Return with meta object for consistency with other list endpoints
+    return NextResponse.json({
+      success: true,
+      data: userResumes,
+      meta: { total: userResumes.length },
+    });
   } catch (error) {
     console.error("Error fetching resumes:", error);
     return errorResponse("FETCH_ERROR", "Failed to fetch resumes");

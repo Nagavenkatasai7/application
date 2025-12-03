@@ -101,6 +101,27 @@ describe("repairJson", () => {
       expect(parsed.message).toBe("line1\nline2");
     });
 
+    it("should escape carriage returns INSIDE string values", () => {
+      const input = '{"message": "line1\rline2"}';
+      const result = repairJson(input);
+      const parsed = JSON.parse(result);
+      expect(parsed.message).toBe("line1\rline2");
+    });
+
+    it("should escape tabs INSIDE string values", () => {
+      const input = '{"message": "col1\tcol2"}';
+      const result = repairJson(input);
+      const parsed = JSON.parse(result);
+      expect(parsed.message).toBe("col1\tcol2");
+    });
+
+    it("should handle escaped backslashes in single-quoted strings", () => {
+      const input = "{'path': 'C:\\\\Users'}";
+      const result = repairJson(input);
+      const parsed = JSON.parse(result);
+      expect(parsed.path).toBe("C:\\Users");
+    });
+
     it("should handle the exact bug scenario from production", () => {
       // This simulates the AI response that was failing
       const input = `{
@@ -274,6 +295,32 @@ describe("extractJsonFromResponse", () => {
     const input = '\uFEFF{"key": "value"}';
     const result = extractJsonFromResponse(input);
     expect(JSON.parse(result)).toEqual({ key: "value" });
+  });
+
+  it("should handle escaped characters in strings during brace matching", () => {
+    const input = 'Text {"message": "value with \\"escaped\\" quotes"} more';
+    const result = extractJsonFromResponse(input);
+    expect(JSON.parse(result)).toEqual({ message: 'value with "escaped" quotes' });
+  });
+
+  it("should handle escaped backslashes in strings", () => {
+    const input = '{"path": "C:\\\\Users\\\\name"}';
+    const result = extractJsonFromResponse(input);
+    expect(JSON.parse(result)).toEqual({ path: "C:\\Users\\name" });
+  });
+
+  it("should fallback to first-to-last brace when balanced matching fails", () => {
+    // Create a scenario where balanced matching might fail but first-to-last works
+    const input = 'prefix {"key": "value"} suffix {"another": "object"}';
+    const result = extractJsonFromResponse(input);
+    // Should get the first complete JSON object
+    expect(JSON.parse(result)).toEqual({ key: "value" });
+  });
+
+  it("should return original text when no JSON found", () => {
+    const input = "No JSON here at all";
+    const result = extractJsonFromResponse(input);
+    expect(result).toBe("No JSON here at all");
   });
 });
 

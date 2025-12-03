@@ -18,12 +18,46 @@ function isUpstashConfigured(): boolean {
 // In-memory storage for development (per-instance, resets on restart)
 const inMemoryStore = new Map<string, { count: number; resetTime: number }>();
 
+// Cleanup configuration to prevent memory leaks
+const CLEANUP_INTERVAL_MS = 60000; // Run cleanup every minute
+const MAX_STORE_SIZE = 10000; // Maximum number of entries before forced cleanup
+let lastCleanupTime = Date.now();
+
+/**
+ * Clean up expired entries from the in-memory store to prevent memory leaks
+ */
+function cleanupStaleEntries(): void {
+  const now = Date.now();
+
+  // Only run cleanup if enough time has passed or store is too large
+  if (now - lastCleanupTime < CLEANUP_INTERVAL_MS && inMemoryStore.size < MAX_STORE_SIZE) {
+    return;
+  }
+
+  let deletedCount = 0;
+  for (const [key, record] of inMemoryStore.entries()) {
+    if (record.resetTime < now) {
+      inMemoryStore.delete(key);
+      deletedCount++;
+    }
+  }
+
+  if (deletedCount > 0) {
+    console.log(`[Rate Limiter] Cleaned up ${deletedCount} expired entries. Current size: ${inMemoryStore.size}`);
+  }
+
+  lastCleanupTime = now;
+}
+
 /**
  * Simple in-memory rate limiter for development
  */
 function createInMemoryLimiter(limit: number, windowMs: number) {
   return {
     limit: async (identifier: string) => {
+      // Run cleanup before processing request
+      cleanupStaleEntries();
+
       const now = Date.now();
       const record = inMemoryStore.get(identifier);
 
@@ -65,6 +99,8 @@ const RATE_LIMITS = {
   upload: { limit: 10, window: "1m" as const, windowMs: 60 * 1000 },
   // AI: 20 requests per minute (expensive)
   ai: { limit: 20, window: "1m" as const, windowMs: 60 * 1000 },
+  // Auth: 5 requests per 15 minutes (prevent brute force)
+  auth: { limit: 5, window: "15m" as const, windowMs: 15 * 60 * 1000 },
 };
 
 type RateLimitType = keyof typeof RATE_LIMITS;
@@ -107,6 +143,16 @@ if (isUpstashConfigured()) {
     analytics: true,
     prefix: "ratelimit:ai",
   });
+
+  rateLimiters.auth = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(
+      RATE_LIMITS.auth.limit,
+      RATE_LIMITS.auth.window
+    ),
+    analytics: true,
+    prefix: "ratelimit:auth",
+  });
 } else {
   // Development fallback
   rateLimiters.api = createInMemoryLimiter(
@@ -120,6 +166,10 @@ if (isUpstashConfigured()) {
   rateLimiters.ai = createInMemoryLimiter(
     RATE_LIMITS.ai.limit,
     RATE_LIMITS.ai.windowMs
+  );
+  rateLimiters.auth = createInMemoryLimiter(
+    RATE_LIMITS.auth.limit,
+    RATE_LIMITS.auth.windowMs
   );
 }
 

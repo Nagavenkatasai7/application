@@ -27,6 +27,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/layout/page-transition";
+import { CircularProgress } from "@/components/ui/circular-progress";
+import { StatCard } from "@/components/ui/stat-card";
+import { BentoGrid, BentoCard } from "@/components/ui/bento-grid";
 import type {
   ContextResult,
   MatchedSkill,
@@ -34,7 +37,6 @@ import type {
   ExperienceAlignment,
 } from "@/lib/validations/context";
 import {
-  getContextScoreColor,
   getRelevanceColor,
   getImportanceColor,
   getStrengthColor,
@@ -254,37 +256,44 @@ export default function ContextPage() {
           <StaggerContainer className="space-y-6">
             {/* Score Card */}
             <StaggerItem>
-              <Card>
+              <Card className="overflow-hidden">
                 <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground uppercase tracking-wide">
-                        Alignment Score
-                      </p>
-                      <div className="flex items-baseline gap-2 mt-1">
-                        <span className={`text-5xl font-bold ${getContextScoreColor(result.scoreLabel)}`}>
-                          {result.score}
-                        </span>
-                        <span className="text-2xl text-muted-foreground">/100</span>
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-6">
+                      <CircularProgress
+                        value={result.score}
+                        size="xl"
+                        showLabel
+                        animated
+                        celebrate={result.score >= 80}
+                      />
+                      <div>
+                        <p className="text-sm text-muted-foreground uppercase tracking-wide font-medium">
+                          Alignment Score
+                        </p>
+                        <Badge variant="outline" className="mt-2 capitalize text-sm px-3 py-1">
+                          {result.scoreLabel}
+                        </Badge>
+                        <p className="mt-3 text-muted-foreground max-w-md leading-relaxed">{result.summary}</p>
                       </div>
-                      <Badge variant="outline" className="mt-2 capitalize">
-                        {result.scoreLabel}
-                      </Badge>
                     </div>
-                    <div className="text-right space-y-2">
-                      <div className="flex items-center gap-4">
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-green-500">{result.matchedSkills.length}</p>
-                          <p className="text-xs text-muted-foreground">Matched Skills</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-red-500">{result.missingRequirements.length}</p>
-                          <p className="text-xs text-muted-foreground">Missing</p>
-                        </div>
-                      </div>
+                    <div className="flex gap-4">
+                      <StatCard
+                        label="Matched Skills"
+                        value={result.matchedSkills.length}
+                        icon={<CheckCircle2 />}
+                        size="sm"
+                        variant="gradient"
+                      />
+                      <StatCard
+                        label="Missing"
+                        value={result.missingRequirements.length}
+                        icon={<AlertTriangle />}
+                        size="sm"
+                        variant="outline"
+                      />
                     </div>
                   </div>
-                  <p className="mt-4 text-muted-foreground">{result.summary}</p>
                 </CardContent>
               </Card>
             </StaggerItem>
@@ -329,72 +338,66 @@ export default function ContextPage() {
             {/* Matched Skills */}
             {result.matchedSkills.length > 0 && (
               <StaggerItem>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-success" />
+                    <h3 className="text-lg font-semibold">
                       Matched Skills ({result.matchedSkills.length})
-                    </CardTitle>
-                    <CardDescription>
-                      Skills from your resume that match the job requirements
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {result.matchedSkills.map((skill, i) => (
-                        <SkillCard key={i} skill={skill} />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Skills from your resume that match the job requirements
+                  </p>
+                  <BentoGrid columns={2} gap="md">
+                    {result.matchedSkills.map((skill, i) => (
+                      <SkillCard key={i} skill={skill} />
+                    ))}
+                  </BentoGrid>
+                </div>
               </StaggerItem>
             )}
 
             {/* Missing Requirements */}
             {result.missingRequirements.length > 0 && (
               <StaggerItem>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-amber-500" />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                    <h3 className="text-lg font-semibold">
                       Missing Requirements ({result.missingRequirements.length})
-                    </CardTitle>
-                    <CardDescription>
-                      Job requirements not found in your resume
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {result.missingRequirements.map((req, i) => (
-                        <RequirementCard key={i} requirement={req} />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Job requirements not found in your resume
+                  </p>
+                  <BentoGrid columns={2} gap="md">
+                    {result.missingRequirements.map((req, i) => (
+                      <RequirementCard key={i} requirement={req} />
+                    ))}
+                  </BentoGrid>
+                </div>
               </StaggerItem>
             )}
 
             {/* Experience Alignment */}
             {result.experienceAlignments.length > 0 && (
               <StaggerItem>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Briefcase className="h-5 w-5 text-primary" />
-                      Experience Relevance
-                    </CardTitle>
-                    <CardDescription>
-                      How your work experience aligns with this role
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {result.experienceAlignments.map((exp, i) => (
-                        <ExperienceCard key={i} experience={exp} />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">
+                      Experience Relevance ({result.experienceAlignments.length})
+                    </h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    How your work experience aligns with this role
+                  </p>
+                  <BentoGrid columns={2} gap="md">
+                    {result.experienceAlignments.map((exp, i) => (
+                      <ExperienceCard key={i} experience={exp} />
+                    ))}
+                  </BentoGrid>
+                </div>
               </StaggerItem>
             )}
 
@@ -487,17 +490,29 @@ export default function ContextPage() {
  */
 function SkillCard({ skill }: { skill: MatchedSkill }) {
   return (
-    <div className="p-3 rounded-lg border bg-card">
-      <div className="flex items-center justify-between mb-1">
-        <span className="font-medium text-sm">{skill.skill}</span>
-        <Badge className={`text-xs capitalize ${getStrengthColor(skill.strength)}`}>
-          {skill.strength}
-        </Badge>
+    <BentoCard variant="glass" hover animated>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-success/10 text-success">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+            <span className="font-semibold text-sm text-foreground">{skill.skill}</span>
+          </div>
+          <Badge className={`text-xs capitalize shrink-0 ${getStrengthColor(skill.strength)}`}>
+            {skill.strength}
+          </Badge>
+        </div>
+        <div className="pt-2 border-t border-border/50">
+          <p className="text-xs text-muted-foreground">
+            <span className="text-primary font-medium">Source:</span> {skill.source}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1 italic">
+            &ldquo;{skill.evidence}&rdquo;
+          </p>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Found in: {skill.source} | {skill.evidence}
-      </p>
-    </div>
+    </BentoCard>
   );
 }
 
@@ -506,18 +521,28 @@ function SkillCard({ skill }: { skill: MatchedSkill }) {
  */
 function RequirementCard({ requirement }: { requirement: MissingRequirement }) {
   return (
-    <div className="p-4 rounded-lg border bg-card">
-      <div className="flex items-start justify-between gap-4 mb-2">
-        <span className="font-medium text-sm">{requirement.requirement}</span>
-        <Badge className={`text-xs capitalize ${getImportanceColor(requirement.importance)}`}>
-          {requirement.importance.replace("_", " ")}
-        </Badge>
+    <BentoCard variant="glass" hover animated>
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+            <span className="font-semibold text-sm text-foreground">{requirement.requirement}</span>
+          </div>
+          <Badge className={`text-xs capitalize shrink-0 ${getImportanceColor(requirement.importance)}`}>
+            {requirement.importance.replace("_", " ")}
+          </Badge>
+        </div>
+        <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Lightbulb className="h-3.5 w-3.5 text-primary" />
+            <p className="text-xs text-primary uppercase tracking-wide font-medium">Suggestion</p>
+          </div>
+          <p className="text-sm text-foreground/80">{requirement.suggestion}</p>
+        </div>
       </div>
-      <div className="p-2 rounded bg-primary/5 border border-primary/10">
-        <p className="text-xs text-primary uppercase tracking-wide mb-1">Suggestion</p>
-        <p className="text-sm text-muted-foreground">{requirement.suggestion}</p>
-      </div>
-    </div>
+    </BentoCard>
   );
 }
 
@@ -526,26 +551,35 @@ function RequirementCard({ requirement }: { requirement: MissingRequirement }) {
  */
 function ExperienceCard({ experience }: { experience: ExperienceAlignment }) {
   return (
-    <div className="p-4 rounded-lg border bg-card">
-      <div className="flex items-start justify-between gap-4 mb-2">
-        <div>
-          <p className="font-medium">{experience.experienceTitle}</p>
-          <p className="text-sm text-muted-foreground">{experience.companyName}</p>
+    <BentoCard variant="glass" hover animated>
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <div className="p-1.5 rounded-lg bg-primary/10 text-primary mt-0.5">
+              <Briefcase className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-foreground">{experience.experienceTitle}</p>
+              <p className="text-xs text-muted-foreground">{experience.companyName}</p>
+            </div>
+          </div>
+          <Badge className={`capitalize text-xs shrink-0 ${getRelevanceColor(experience.relevance)}`}>
+            {experience.relevance}
+          </Badge>
         </div>
-        <Badge className={`capitalize ${getRelevanceColor(experience.relevance)}`}>
-          {experience.relevance} relevance
-        </Badge>
+        {experience.matchedAspects.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {experience.matchedAspects.map((aspect, i) => (
+              <Badge key={i} variant="secondary" className="text-xs bg-primary/10 text-primary border-0">
+                {aspect}
+              </Badge>
+            ))}
+          </div>
+        )}
+        <div className="pt-2 border-t border-border/50">
+          <p className="text-sm text-muted-foreground leading-relaxed">{experience.explanation}</p>
+        </div>
       </div>
-      {experience.matchedAspects.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
-          {experience.matchedAspects.map((aspect, i) => (
-            <Badge key={i} variant="secondary" className="text-xs">
-              {aspect}
-            </Badge>
-          ))}
-        </div>
-      )}
-      <p className="text-sm text-muted-foreground">{experience.explanation}</p>
-    </div>
+    </BentoCard>
   );
 }

@@ -25,13 +25,35 @@ const PUBLIC_ROUTES = [
   "/login",         // Login page
   "/verify-request", // "Check your email" page
   "/auth-error",    // Auth error page
+  "/privacy",       // Privacy Policy
+  "/terms",         // Terms of Service
+  "/refunds",       // Refunds Policy
+  "/contact",       // Contact page
+  "/shipping",      // Shipping info
+  "/about",         // About page
+  "/blog",          // Blog page
 ];
 
 // Routes that should redirect authenticated users to dashboard
 const AUTH_REDIRECT_ROUTES = ["/", "/login"];
 
-// Auth API routes (handled by NextAuth)
-const AUTH_API_ROUTES = ["/api/auth"];
+// Auth API routes handled by NextAuth (skip rate limiting)
+const NEXTAUTH_API_ROUTES = [
+  "/api/auth/callback",
+  "/api/auth/signin",
+  "/api/auth/signout",
+  "/api/auth/session",
+  "/api/auth/csrf",
+  "/api/auth/providers",
+];
+
+// Custom auth routes that need strict rate limiting
+const RATE_LIMITED_AUTH_ROUTES = [
+  "/api/auth/register",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
+  "/api/auth/verify-email",
+];
 
 // Routes that need stricter rate limiting
 const UPLOAD_ROUTES = ["/api/resumes/upload"];
@@ -51,8 +73,14 @@ function shouldRedirectAuthenticatedUser(pathname: string): boolean {
   return AUTH_REDIRECT_ROUTES.includes(pathname);
 }
 
-function isAuthApiRoute(pathname: string): boolean {
-  return AUTH_API_ROUTES.some((route) => pathname.startsWith(route));
+function isNextAuthApiRoute(pathname: string): boolean {
+  return NEXTAUTH_API_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+}
+
+function isRateLimitedAuthRoute(pathname: string): boolean {
+  return RATE_LIMITED_AUTH_ROUTES.some((route) => pathname === route);
 }
 
 function isApiRoute(pathname: string): boolean {
@@ -67,7 +95,11 @@ function isStaticAsset(pathname: string): boolean {
   );
 }
 
-function getRateLimitType(pathname: string): "api" | "upload" | "ai" {
+function getRateLimitType(pathname: string): "api" | "upload" | "ai" | "auth" {
+  // Custom auth routes get strict rate limiting
+  if (isRateLimitedAuthRoute(pathname)) {
+    return "auth";
+  }
   if (UPLOAD_ROUTES.some((route) => pathname.startsWith(route))) {
     return "upload";
   }
@@ -138,9 +170,31 @@ export default auth(async function middleware(request) {
     return NextResponse.next();
   }
 
-  // Allow NextAuth routes
-  if (isAuthApiRoute(pathname)) {
+  // Allow NextAuth built-in routes (no rate limiting needed, handled by NextAuth)
+  if (isNextAuthApiRoute(pathname)) {
     return NextResponse.next();
+  }
+
+  // Apply strict rate limiting to custom auth routes (BEFORE auth check)
+  // These are public endpoints that need protection from brute force
+  if (isRateLimitedAuthRoute(pathname)) {
+    try {
+      const identifier = getClientIdentifier(request as NextRequest);
+      const result = await checkRateLimit(identifier, "auth");
+
+      if (!result.success) {
+        return createRateLimitResponse(result);
+      }
+
+      // Allow the request through with rate limit headers
+      const response = NextResponse.next();
+      response.headers.set("X-RateLimit-Remaining", String(result.remaining));
+      response.headers.set("X-RateLimit-Reset", String(result.reset));
+      return response;
+    } catch (error) {
+      console.error("Auth rate limit check failed:", error);
+      return NextResponse.next();
+    }
   }
 
   // Skip rate limiting for health checks

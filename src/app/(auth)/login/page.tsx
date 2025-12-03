@@ -67,6 +67,8 @@ function LoginForm() {
         return "Please sign in to access this page.";
       case "EMAIL_NOT_VERIFIED":
         return "Please verify your email before signing in.";
+      case "ACCOUNT_LOCKED":
+        return "Your account is temporarily locked due to too many failed login attempts. Please try again in 15 minutes.";
       default:
         return code ? "An unexpected error occurred. Please try again." : "";
     }
@@ -89,8 +91,8 @@ function LoginForm() {
         return;
       }
 
-      // Redirect to verify-request page
-      window.location.href = `/verify-request?email=${encodeURIComponent(email)}`;
+      // Redirect to verify-request page using router for smooth navigation
+      router.push(`/verify-request?email=${encodeURIComponent(email)}`);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -114,6 +116,10 @@ function LoginForm() {
         if (result.error === "EMAIL_NOT_VERIFIED") {
           setError(
             "Please verify your email before signing in. Check your inbox for the verification link."
+          );
+        } else if (result.error === "ACCOUNT_LOCKED") {
+          setError(
+            "Your account is temporarily locked due to too many failed login attempts. Please try again in 15 minutes."
           );
         } else {
           setError("Invalid email or password. Please try again.");

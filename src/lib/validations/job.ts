@@ -68,10 +68,12 @@ export const importJobSchema = z.object({
 export type ImportJobInput = z.infer<typeof importJobSchema>;
 
 // Schema for job response from API
+// Note: Date fields are returned as ISO strings from JSON serialization
 export const jobResponseSchema = z.object({
   id: z.string(),
   platform: jobPlatformEnum,
   externalId: z.string().nullable(),
+  url: z.string().nullable().optional(),
   title: z.string(),
   companyId: z.string().nullable(),
   companyName: z.string().nullable(),
@@ -80,9 +82,9 @@ export const jobResponseSchema = z.object({
   requirements: z.array(z.string()).nullable(),
   skills: z.array(z.string()).nullable(),
   salary: z.string().nullable(),
-  postedAt: z.number().nullable(),
-  cachedAt: z.number().nullable(),
-  createdAt: z.number().nullable(),
+  postedAt: z.string().nullable(),
+  cachedAt: z.string().nullable(),
+  createdAt: z.string().nullable(),
 });
 
 export type JobResponse = z.infer<typeof jobResponseSchema>;

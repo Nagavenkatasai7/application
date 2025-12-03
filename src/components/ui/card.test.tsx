@@ -34,7 +34,7 @@ describe('Card Components', () => {
     it('should have base card styles', () => {
       render(<Card data-testid="card">Content</Card>)
       const card = screen.getByTestId('card')
-      expect(card.className).toContain('rounded-xl')
+      expect(card.className).toContain('rounded-2xl')
       expect(card.className).toContain('border')
     })
   })

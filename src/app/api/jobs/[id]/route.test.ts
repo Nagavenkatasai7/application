@@ -10,7 +10,7 @@ let selectCallCount = 0
 vi.mock('@/lib/db', () => ({
   db: {
     select: vi.fn(() => ({
-      from: vi.fn((table) => ({
+      from: vi.fn((_table) => ({
         where: vi.fn((condition) => {
           // Determine which mock to use based on call order
           // First call is for jobs, second call (if any) is for applications

@@ -31,16 +31,6 @@ describe("ResumeCard Component", () => {
       expect(screen.getByText("My Resume")).toBeInTheDocument();
     });
 
-    it("should render original file name when provided", () => {
-      render(<ResumeCard resume={createMockResume()} />);
-      expect(screen.getByText("resume.pdf")).toBeInTheDocument();
-    });
-
-    it("should not render file name when not provided", () => {
-      render(<ResumeCard resume={createMockResume({ originalFileName: null })} />);
-      expect(screen.queryByText("resume.pdf")).not.toBeInTheDocument();
-    });
-
     it("should render file size when provided", () => {
       render(<ResumeCard resume={createMockResume({ fileSize: 2048 })} />);
       expect(screen.getByText("2.0 KB")).toBeInTheDocument();
@@ -58,7 +48,8 @@ describe("ResumeCard Component", () => {
 
     it("should not render date when createdAt is undefined", () => {
       render(<ResumeCard resume={createMockResume({ createdAt: undefined })} />);
-      expect(screen.queryByText(/Created/)).not.toBeInTheDocument();
+      // Without createdAt, no date should be shown
+      expect(screen.queryByText(/Nov/)).not.toBeInTheDocument();
     });
 
     it("should render extracted text preview", () => {
@@ -90,55 +81,42 @@ describe("ResumeCard Component", () => {
     });
   });
 
-  describe("dropdown menu", () => {
-    it("should render menu trigger button", () => {
-      render(<ResumeCard resume={createMockResume()} />);
-      expect(screen.getByRole("button", { name: /open menu/i })).toBeInTheDocument();
+  describe("action buttons", () => {
+    it("should render View button when onView is provided", () => {
+      const onView = vi.fn();
+      render(<ResumeCard resume={createMockResume()} onView={onView} />);
+      expect(screen.getByText("View")).toBeInTheDocument();
     });
 
-    it("should show edit option when onEdit is provided", async () => {
-      const user = userEvent.setup();
+    it("should render Edit button when onEdit is provided", () => {
       const onEdit = vi.fn();
       render(<ResumeCard resume={createMockResume()} onEdit={onEdit} />);
-
-      await user.click(screen.getByRole("button", { name: /open menu/i }));
-
       expect(screen.getByText("Edit")).toBeInTheDocument();
     });
 
-    it("should not show edit option when onEdit is not provided", async () => {
-      const user = userEvent.setup();
-      render(<ResumeCard resume={createMockResume()} />);
-
-      await user.click(screen.getByRole("button", { name: /open menu/i }));
-
-      expect(screen.queryByText("Edit")).not.toBeInTheDocument();
+    it("should render Tailor button when onTailor is provided", () => {
+      const onTailor = vi.fn();
+      render(<ResumeCard resume={createMockResume()} onTailor={onTailor} />);
+      expect(screen.getByText("Tailor")).toBeInTheDocument();
     });
 
-    it("should show delete option when onDelete is provided", async () => {
-      const user = userEvent.setup();
-      const onDelete = vi.fn();
-      render(<ResumeCard resume={createMockResume()} onDelete={onDelete} />);
-
-      await user.click(screen.getByRole("button", { name: /open menu/i }));
-
-      expect(screen.getByText("Delete")).toBeInTheDocument();
-    });
-
-    it("should not show delete option when onDelete is not provided", async () => {
-      const user = userEvent.setup();
+    it("should not render View button when onView is not provided", () => {
       render(<ResumeCard resume={createMockResume()} />);
+      expect(screen.queryByText("View")).not.toBeInTheDocument();
+    });
+  });
 
-      await user.click(screen.getByRole("button", { name: /open menu/i }));
-
-      expect(screen.queryByText("Delete")).not.toBeInTheDocument();
+  describe("dropdown menu", () => {
+    it("should render more actions button", () => {
+      render(<ResumeCard resume={createMockResume()} />);
+      expect(screen.getByRole("button", { name: /more actions/i })).toBeInTheDocument();
     });
 
     it("should show download option when originalFileName is provided", async () => {
       const user = userEvent.setup();
       render(<ResumeCard resume={createMockResume()} />);
 
-      await user.click(screen.getByRole("button", { name: /open menu/i }));
+      await user.click(screen.getByRole("button", { name: /more actions/i }));
 
       expect(screen.getByText("Download Original")).toBeInTheDocument();
     });
@@ -147,9 +125,28 @@ describe("ResumeCard Component", () => {
       const user = userEvent.setup();
       render(<ResumeCard resume={createMockResume({ originalFileName: null })} />);
 
-      await user.click(screen.getByRole("button", { name: /open menu/i }));
+      await user.click(screen.getByRole("button", { name: /more actions/i }));
 
       expect(screen.queryByText("Download Original")).not.toBeInTheDocument();
+    });
+
+    it("should show delete option when onDelete is provided", async () => {
+      const user = userEvent.setup();
+      const onDelete = vi.fn();
+      render(<ResumeCard resume={createMockResume()} onDelete={onDelete} />);
+
+      await user.click(screen.getByRole("button", { name: /more actions/i }));
+
+      expect(screen.getByText("Delete")).toBeInTheDocument();
+    });
+
+    it("should not show delete option when onDelete is not provided", async () => {
+      const user = userEvent.setup();
+      render(<ResumeCard resume={createMockResume()} />);
+
+      await user.click(screen.getByRole("button", { name: /more actions/i }));
+
+      expect(screen.queryByText("Delete")).not.toBeInTheDocument();
     });
   });
 
@@ -159,21 +156,30 @@ describe("ResumeCard Component", () => {
       const onDelete = vi.fn();
       render(<ResumeCard resume={createMockResume()} onDelete={onDelete} />);
 
-      await user.click(screen.getByRole("button", { name: /open menu/i }));
+      await user.click(screen.getByRole("button", { name: /more actions/i }));
       await user.click(screen.getByText("Delete"));
 
       expect(onDelete).toHaveBeenCalledWith("resume-123");
     });
 
-    it("should call onEdit with resume id when edit is clicked", async () => {
+    it("should call onView with resume id when view is clicked", async () => {
       const user = userEvent.setup();
-      const onEdit = vi.fn();
-      render(<ResumeCard resume={createMockResume()} onEdit={onEdit} />);
+      const onView = vi.fn();
+      render(<ResumeCard resume={createMockResume()} onView={onView} />);
 
-      await user.click(screen.getByRole("button", { name: /open menu/i }));
-      await user.click(screen.getByText("Edit"));
+      await user.click(screen.getByText("View"));
 
-      expect(onEdit).toHaveBeenCalledWith("resume-123");
+      expect(onView).toHaveBeenCalledWith("resume-123");
+    });
+
+    it("should call onTailor with resume id when tailor is clicked", async () => {
+      const user = userEvent.setup();
+      const onTailor = vi.fn();
+      render(<ResumeCard resume={createMockResume()} onTailor={onTailor} />);
+
+      await user.click(screen.getByText("Tailor"));
+
+      expect(onTailor).toHaveBeenCalledWith("resume-123");
     });
   });
 
@@ -205,11 +211,9 @@ describe("ResumeCard Component", () => {
       expect(screen.getByText(/Nov 14, 2023/)).toBeInTheDocument();
     });
 
-    it("should handle different timestamp formats", () => {
-      // Test with a large timestamp that would be in milliseconds
-      render(<ResumeCard resume={createMockResume({ createdAt: 1700000000000 })} />);
-      // Should display some formatted date
-      expect(screen.getByText(/Created/)).toBeInTheDocument();
+    it("should handle ISO string dates", () => {
+      render(<ResumeCard resume={createMockResume({ createdAt: "2023-11-14T22:13:20.000Z" as unknown as number })} />);
+      expect(screen.getByText(/Nov 14, 2023/)).toBeInTheDocument();
     });
   });
 
@@ -219,10 +223,10 @@ describe("ResumeCard Component", () => {
       expect(container.querySelector("[data-slot='card']")).toBeInTheDocument();
     });
 
-    it("should have hover effect class", () => {
+    it("should have group class for hover effects", () => {
       const { container } = render(<ResumeCard resume={createMockResume()} />);
       const card = container.querySelector("[data-slot='card']");
-      expect(card?.className).toContain("hover:bg-card-hover");
+      expect(card?.className).toContain("group");
     });
   });
 });

@@ -1,0 +1,66 @@
+name: Lighthouse CI
+
+on:
+  deployment_status:
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  lighthouse:
+    name: Lighthouse Performance Audit
+    runs-on: ubuntu-latest
+    # Only run on successful Vercel deployments for pull requests
+    if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Preview'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for deployment to be ready
+        run: |
+          DEPLOYMENT_URL="${{ github.event.deployment_status.target_url }}"
+          echo "Waiting for deployment at: $DEPLOYMENT_URL"
+
+          for i in {1..24}; do
+            if curl -s -o /dev/null -w "%{http_code}" "$DEPLOYMENT_URL" | grep -q "200\|302\|301"; then
+              echo "Deployment is ready!"
+              break
+            fi
+            echo "Attempt $i: Waiting for deployment..."
+            sleep 5
+          done
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            ${{ github.event.deployment_status.target_url }}
+            ${{ github.event.deployment_status.target_url }}/login
+          configPath: ./lighthouserc.js
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+        env:
+          LIGHTHOUSE_URL: ${{ github.event.deployment_status.target_url }}
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: Upload Lighthouse results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-results
+          path: .lighthouseci/
+          retention-days: 14

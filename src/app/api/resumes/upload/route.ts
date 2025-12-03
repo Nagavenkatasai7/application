@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db, resumes } from "@/lib/db";
-import { getOrCreateLocalUser } from "@/lib/auth";
+import { requireAuth, getUserById } from "@/lib/auth";
 import { v4 as uuidv4 } from "uuid";
 import { put } from "@vercel/blob";
 import { extractTextFromPdf } from "@/lib/pdf/parser";
@@ -23,7 +23,19 @@ export const maxDuration = 180;
 // POST /api/resumes/upload - Upload a PDF resume
 export async function POST(request: Request) {
   try {
-    const user = await getOrCreateLocalUser();
+    // Authenticate user using modern auth pattern
+    const authUser = await requireAuth();
+    const user = await getUserById(authUser.id);
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "USER_NOT_FOUND", message: "User not found" },
+        },
+        { status: 404 }
+      );
+    }
 
     // Parse FormData
     const formData = await request.formData();
@@ -191,6 +203,22 @@ export async function POST(request: Request) {
     // Determine specific error type for better user feedback
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
+
+    // Handle authentication errors
+    const isAuthError = errorMessage.includes("Authentication required");
+    if (isAuthError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Authentication required. Please log in.",
+          },
+        },
+        { status: 401 }
+      );
+    }
+
     const isTimeout =
       errorMessage.includes("timeout") || errorMessage.includes("ETIMEDOUT");
 

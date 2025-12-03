@@ -5,7 +5,6 @@ import {
   loadRetryConfig,
   getRetryConfig,
   resetRetryConfigCache,
-  type RetryConfig,
 } from "./retry-config";
 
 describe("DEFAULT_RETRY_CONFIG", () => {
