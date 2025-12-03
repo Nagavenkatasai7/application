@@ -244,7 +244,15 @@ describe("jobCreateSchema", () => {
       expect(result.success).toBe(false);
     });
 
-    it("should reject invalid salary structure", () => {
+    it("should accept string salary from LinkedIn", () => {
+      const result = jobCreateSchema.safeParse({
+        title: "Test Job",
+        salary: "$200,000.00/yr - $350,000.00/yr",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject invalid salary structure (object with invalid types)", () => {
       const result = jobCreateSchema.safeParse({
         title: "Test Job",
         salary: { min: "not-a-number" },
@@ -270,14 +278,14 @@ describe("jobCreateSchema", () => {
   });
 
   describe("salary field", () => {
-    it("should accept salary with defaults", () => {
+    it("should accept salary object with defaults", () => {
       const result = jobCreateSchema.safeParse({
         title: "Test Job",
         salary: { min: 100000 },
       });
       expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.salary?.currency).toBe("USD");
+      if (result.success && typeof result.data.salary === "object" && result.data.salary !== null) {
+        expect(result.data.salary.currency).toBe("USD");
       }
     });
 
@@ -287,8 +295,19 @@ describe("jobCreateSchema", () => {
         salary: { min: 100000, currency: "EUR" },
       });
       expect(result.success).toBe(true);
+      if (result.success && typeof result.data.salary === "object" && result.data.salary !== null) {
+        expect(result.data.salary.currency).toBe("EUR");
+      }
+    });
+
+    it("should accept salary as string from LinkedIn", () => {
+      const result = jobCreateSchema.safeParse({
+        title: "Test Job",
+        salary: "$150,000.00/yr - $200,000.00/yr",
+      });
+      expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.salary?.currency).toBe("EUR");
+        expect(result.data.salary).toBe("$150,000.00/yr - $200,000.00/yr");
       }
     });
   });
