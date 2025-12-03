@@ -57,9 +57,9 @@ describe("JobForm Component", () => {
 
     it("should show required indicators for required fields", () => {
       render(<JobForm onSubmit={mockOnSubmit} />);
-      // Required fields have * markers
+      // Required fields have * markers (title and company only, description is optional)
       const labels = screen.getAllByText("*");
-      expect(labels.length).toBeGreaterThanOrEqual(3); // title, company, description
+      expect(labels.length).toBeGreaterThanOrEqual(2); // title, company
     });
   });
 
@@ -186,23 +186,19 @@ describe("JobForm Component", () => {
       expect(mockOnSubmit).not.toHaveBeenCalled();
     });
 
-    it("should show error when description is too short", async () => {
+    it("should allow empty or short description", async () => {
       const user = userEvent.setup();
       render(<JobForm onSubmit={mockOnSubmit} />);
 
       await user.type(screen.getByLabelText(/job title/i), "Software Engineer");
       await user.type(screen.getByLabelText(/company name/i), "Acme Corp");
-      await user.type(screen.getByLabelText(/job description/i), "Short");
+      // Description is now optional - leave empty or short
 
       await user.click(screen.getByRole("button", { name: /save job/i }));
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/job description must be at least 10 characters/i)
-        ).toBeInTheDocument();
+        expect(mockOnSubmit).toHaveBeenCalled();
       });
-
-      expect(mockOnSubmit).not.toHaveBeenCalled();
     });
   });
 

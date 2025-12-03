@@ -146,7 +146,7 @@ export function JobForm({ onSubmit, onCancel, isLoading, defaultValues }: JobFor
           {/* Job Description */}
           <div className="space-y-2">
             <label htmlFor="description" className="text-sm font-medium">
-              Job Description <span className="text-destructive">*</span>
+              Job Description
             </label>
             <textarea
               id="description"

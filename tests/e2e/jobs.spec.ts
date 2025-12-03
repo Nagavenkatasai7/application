@@ -153,23 +153,22 @@ test.describe("Job Form Validation", () => {
     await expect(page.getByText(/company name is required/i)).toBeVisible();
   });
 
-  test("should show validation error for short description", async ({
+  test("should allow job creation with empty description", async ({
     page,
   }) => {
     await page.goto("/jobs/new");
 
-    // Fill title and company name, but short description
-    await page.getByLabel(/job title/i).fill("Software Engineer");
+    // Fill only title and company name - description is now optional
+    const timestamp = Date.now();
+    await page.getByLabel(/job title/i).fill(`Test Job ${timestamp}`);
     await page.getByLabel(/company name/i).fill("Test Company");
-    await page.getByLabel(/job description/i).fill("Short");
+    // Leave description empty - it's now optional
 
     // Submit the form
     await page.getByRole("button", { name: /save job/i }).click();
 
-    // Should show validation error
-    await expect(
-      page.getByText(/job description must be at least 10 characters/i)
-    ).toBeVisible();
+    // Should redirect to jobs list on success
+    await expect(page).toHaveURL(/\/jobs$/);
   });
 });
 

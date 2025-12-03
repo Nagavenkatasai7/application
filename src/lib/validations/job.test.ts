@@ -59,16 +59,31 @@ describe("Job Validation Schemas", () => {
         }
       });
 
-      it("should require description with minimum length", () => {
+      it("should allow empty or short description", () => {
+        // Description is now optional to support LinkedIn imports
         const result = createJobSchema.safeParse({
           title: "Software Engineer",
           companyName: "Test Co",
           description: "short",
         });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues[0].path).toContain("description");
-        }
+        expect(result.success).toBe(true);
+      });
+
+      it("should allow null description", () => {
+        const result = createJobSchema.safeParse({
+          title: "Software Engineer",
+          companyName: "Test Co",
+          description: null,
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it("should allow undefined description", () => {
+        const result = createJobSchema.safeParse({
+          title: "Software Engineer",
+          companyName: "Test Co",
+        });
+        expect(result.success).toBe(true);
       });
     });
 
@@ -77,7 +92,7 @@ describe("Job Validation Schemas", () => {
         const input = {
           title: "Software Engineer",
           companyName: "Test Company",
-          description: "This is a valid job description with enough characters",
+          // description is optional
         };
         const result = createJobSchema.safeParse(input);
         expect(result.success).toBe(true);

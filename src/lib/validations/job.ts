@@ -32,8 +32,10 @@ export const createJobSchema = z.object({
     .transform((val) => val || undefined),
   description: z
     .string()
-    .min(10, "Job description must be at least 10 characters")
-    .max(50000, "Job description is too long"),
+    .max(50000, "Job description is too long")
+    .optional()
+    .nullable()
+    .transform((val) => val || null),
   requirements: z.array(z.string()).default([]),
   skills: z.array(z.string()).default([]),
   salary: z
