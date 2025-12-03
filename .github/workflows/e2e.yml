@@ -17,7 +17,7 @@ jobs:
     outputs:
       deployment_url: ${{ github.event.deployment_status.target_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: database-validation
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
