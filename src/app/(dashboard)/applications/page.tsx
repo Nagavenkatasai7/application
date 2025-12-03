@@ -34,9 +34,15 @@ import {
   XCircle,
   Filter,
   Search,
+  TrendingUp,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { StatCard, StatCardGrid } from "@/components/ui/stat-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { KanbanBoard } from "@/components/applications/kanban-board";
 import {
   type ApplicationStatus,
   APPLICATION_STATUSES,
@@ -242,10 +248,13 @@ function ApplicationCard({ application, onStatusChange, onDelete }: ApplicationC
   );
 }
 
+type ViewMode = "list" | "kanban";
+
 export default function ApplicationsPage() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["applications", "list", statusFilter],
@@ -316,14 +325,77 @@ export default function ApplicationsPage() {
               Track your job applications and their progress
             </p>
           </div>
-          <Button asChild variant="outline">
-            <Link href="/jobs">
-              View Jobs
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* View Toggle */}
+            <div className="flex items-center border rounded-lg p-1">
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className="h-8 px-3"
+              >
+                <List className="h-4 w-4 mr-1.5" />
+                List
+              </Button>
+              <Button
+                variant={viewMode === "kanban" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("kanban")}
+                className="h-8 px-3"
+              >
+                <LayoutGrid className="h-4 w-4 mr-1.5" />
+                Board
+              </Button>
+            </div>
+            <Button asChild variant="outline">
+              <Link href="/jobs">
+                View Jobs
+              </Link>
+            </Button>
+          </div>
         </div>
 
-        {/* Status Overview Cards */}
+        {/* Summary Stats */}
+        {data && data.data && data.data.length > 0 && (
+          <StatCardGrid columns={4}>
+            <StatCard
+              label="Total Applications"
+              value={data.meta.total}
+              icon={<ClipboardList />}
+              variant="gradient"
+              size="sm"
+            />
+            <StatCard
+              label="Active"
+              value={(statusCounts?.saved || 0) + (statusCounts?.applied || 0) + (statusCounts?.interviewing || 0)}
+              icon={<TrendingUp />}
+              variant="glass"
+              size="sm"
+              trend={{
+                value: Math.round(
+                  (((statusCounts?.saved || 0) + (statusCounts?.applied || 0) + (statusCounts?.interviewing || 0)) / data.meta.total) * 100
+                ),
+                direction: "up",
+              }}
+            />
+            <StatCard
+              label="Interviewing"
+              value={statusCounts?.interviewing || 0}
+              icon={<Calendar />}
+              variant="glass"
+              size="sm"
+            />
+            <StatCard
+              label="Offers"
+              value={statusCounts?.offered || 0}
+              icon={<Trophy />}
+              variant="glass"
+              size="sm"
+            />
+          </StatCardGrid>
+        )}
+
+        {/* Status Filter Cards */}
         {data && data.data && data.data.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {APPLICATION_STATUSES.map((status) => (
@@ -410,22 +482,17 @@ export default function ApplicationsPage() {
 
         {/* Empty State */}
         {data && data.data && data.data.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="py-12 text-center">
-              <div className="flex justify-center mb-4">
-                <div className="rounded-full bg-muted p-3">
-                  <ClipboardList className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </div>
-              <h3 className="text-lg font-medium">No applications yet</h3>
-              <p className="text-muted-foreground mt-1 mb-4">
-                Start tracking your job applications by creating one from a saved job
-              </p>
-              <Button asChild>
-                <Link href="/jobs">Browse Jobs</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<ClipboardList />}
+            title="No applications yet"
+            description="Start tracking your job applications by creating one from a saved job. Stay organized throughout your job search!"
+            action={{
+              label: "Browse Jobs",
+              href: "/jobs",
+            }}
+            variant="encourage"
+            tip="Track all stages of your applications - from saved to offered - in one place."
+          />
         )}
 
         {/* No Results State */}
@@ -449,19 +516,27 @@ export default function ApplicationsPage() {
           </Card>
         )}
 
-        {/* Applications Grid */}
+        {/* Applications Grid / Kanban Board */}
         {filteredApplications && filteredApplications.length > 0 && (
-          <StaggerContainer className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredApplications.map((application) => (
-              <StaggerItem key={application.id}>
-                <ApplicationCard
-                  application={application}
-                  onStatusChange={handleStatusChange}
-                  onDelete={handleDelete}
-                />
-              </StaggerItem>
-            ))}
-          </StaggerContainer>
+          viewMode === "list" ? (
+            <StaggerContainer className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredApplications.map((application) => (
+                <StaggerItem key={application.id}>
+                  <ApplicationCard
+                    application={application}
+                    onStatusChange={handleStatusChange}
+                    onDelete={handleDelete}
+                  />
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+          ) : (
+            <KanbanBoard
+              applications={filteredApplications}
+              onStatusChange={handleStatusChange}
+              onDelete={handleDelete}
+            />
+          )
         )}
 
         {/* Application Count */}

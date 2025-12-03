@@ -13,7 +13,7 @@ import { eq, and, ne } from "drizzle-orm";
 import { cookies } from "next/headers";
 
 // GET /api/users/sessions - List all active sessions
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   try {
     const authUser = await requireAuth();
 
@@ -33,8 +33,8 @@ export async function GET(request: Request) {
     // Filter out expired sessions and mark current session
     const now = new Date();
     const activeSessions = userSessions
-      .filter((s) => s.expires > now)
-      .map((s) => ({
+      .filter((s: typeof userSessions[number]) => s.expires > now)
+      .map((s: typeof userSessions[number]) => ({
         sessionToken: maskSessionToken(s.sessionToken),
         expires: s.expires,
         isCurrent: currentSessionToken ? s.sessionToken === currentSessionToken : false,
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
 }
 
 // DELETE /api/users/sessions - Sign out from all devices except current
-export async function DELETE(request: Request) {
+export async function DELETE(_request: Request) {
   try {
     const authUser = await requireAuth();
 

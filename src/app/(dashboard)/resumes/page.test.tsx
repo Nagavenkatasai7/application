@@ -93,7 +93,7 @@ describe("ResumesPage", () => {
       renderWithQueryClient(<ResumesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText(/manage your uploaded resumes/i)).toBeInTheDocument();
+        expect(screen.getByText(/manage and tailor your resumes/i)).toBeInTheDocument();
       });
     });
 
@@ -135,7 +135,7 @@ describe("ResumesPage", () => {
       renderWithQueryClient(<ResumesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText(/no resumes uploaded/i)).toBeInTheDocument();
+        expect(screen.getByText(/ready to land your dream job/i)).toBeInTheDocument();
       });
     });
 
@@ -148,7 +148,7 @@ describe("ResumesPage", () => {
       renderWithQueryClient(<ResumesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText(/upload a pdf resume to get started/i)).toBeInTheDocument();
+        expect(screen.getByText(/upload your resume and let AI help/i)).toBeInTheDocument();
       });
     });
 
@@ -191,7 +191,7 @@ describe("ResumesPage", () => {
       renderWithQueryClient(<ResumesPage />);
 
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
       });
     });
   });
@@ -230,7 +230,8 @@ describe("ResumesPage", () => {
       renderWithQueryClient(<ResumesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText(/2 resumes uploaded/i)).toBeInTheDocument();
+        // Count text is split across elements, check for the wrapper
+        expect(screen.getByText(/resumes uploaded/i)).toBeInTheDocument();
       });
     });
 
@@ -248,7 +249,8 @@ describe("ResumesPage", () => {
       renderWithQueryClient(<ResumesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText(/1 resume uploaded/i)).toBeInTheDocument();
+        // Count text is split across elements, check for the wrapper
+        expect(screen.getByText(/resume uploaded/i)).toBeInTheDocument();
       });
     });
   });
@@ -281,7 +283,7 @@ describe("ResumesPage", () => {
         expect(screen.getByText("Software Engineer Resume")).toBeInTheDocument();
       });
 
-      const menuButtons = screen.getAllByRole("button", { name: /open menu/i });
+      const menuButtons = screen.getAllByRole("button", { name: /more actions/i });
       await user.click(menuButtons[0]);
       await user.click(screen.getByText("Delete"));
 

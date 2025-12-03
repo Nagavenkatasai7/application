@@ -7,6 +7,7 @@ import {
   professionalInfoSchema,
   profileSchema,
   profileUpdateSchema,
+  profilePictureUploadSchema,
   deleteAccountSchema,
   dataExportSchema,
   sessionInfoSchema,
@@ -229,6 +230,47 @@ describe("Profile Validations", () => {
         // email should be omitted
       });
       expect(result).not.toHaveProperty("email");
+    });
+  });
+
+  describe("profilePictureUploadSchema", () => {
+    it("should accept valid JPEG file under 5MB", () => {
+      const file = new File(["test content"], "avatar.jpg", { type: "image/jpeg" });
+      const result = profilePictureUploadSchema.parse({ file });
+      expect(result.file).toBeInstanceOf(File);
+    });
+
+    it("should accept valid PNG file under 5MB", () => {
+      const file = new File(["test content"], "avatar.png", { type: "image/png" });
+      const result = profilePictureUploadSchema.parse({ file });
+      expect(result.file).toBeInstanceOf(File);
+    });
+
+    it("should accept valid WebP file under 5MB", () => {
+      const file = new File(["test content"], "avatar.webp", { type: "image/webp" });
+      const result = profilePictureUploadSchema.parse({ file });
+      expect(result.file).toBeInstanceOf(File);
+    });
+
+    it("should reject file larger than 5MB", () => {
+      // Create a mock file object with size > 5MB
+      const largeContent = new Array(6 * 1024 * 1024).fill("a").join("");
+      const file = new File([largeContent], "large.jpg", { type: "image/jpeg" });
+      expect(() => profilePictureUploadSchema.parse({ file })).toThrow(
+        "File size must be less than 5MB"
+      );
+    });
+
+    it("should reject unsupported file types", () => {
+      const file = new File(["test content"], "avatar.gif", { type: "image/gif" });
+      expect(() => profilePictureUploadSchema.parse({ file })).toThrow(
+        "File must be JPEG, PNG, or WebP"
+      );
+    });
+
+    it("should reject non-File objects", () => {
+      expect(() => profilePictureUploadSchema.parse({ file: "not a file" })).toThrow();
+      expect(() => profilePictureUploadSchema.parse({ file: null })).toThrow();
     });
   });
 

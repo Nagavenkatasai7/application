@@ -201,6 +201,7 @@ export const jobs = pgTable(
       ],
     }).notNull(),
     externalId: text("external_id"), // Platform-specific ID
+    url: text("url"), // Original job posting URL
     title: text("title").notNull(),
     companyId: text("company_id").references(() => companies.id),
     companyName: text("company_name"), // Fallback if company not in DB

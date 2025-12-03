@@ -15,6 +15,7 @@ import {
   Clock,
   Users,
   Hash,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,10 +28,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/layout/page-transition";
+import { CircularProgress } from "@/components/ui/circular-progress";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatCard } from "@/components/ui/stat-card";
+import { BentoGrid, BentoCard } from "@/components/ui/bento-grid";
 import type { ImpactResult, ImpactBullet } from "@/lib/validations/impact";
 import {
   getImprovementColor,
-  getImpactScoreColor,
   getImprovementLabel,
 } from "@/lib/validations/impact";
 
@@ -148,9 +152,18 @@ export default function ImpactPage() {
             </div>
 
             {resumes.length === 0 && !resumesLoading && (
-              <p className="mt-4 text-sm text-muted-foreground">
-                No resumes found. Create a resume first to analyze your impact.
-              </p>
+              <EmptyState
+                icon={<FileText />}
+                title="No Resumes Found"
+                description="Create a resume first to transform your bullet points into powerful, metrics-driven achievement statements."
+                action={{
+                  label: "Create Resume",
+                  href: "/resumes/new",
+                }}
+                variant="encourage"
+                tip="Numbers speak louder than words - quantified achievements get noticed by recruiters."
+                className="mt-6"
+              />
             )}
           </CardContent>
         </Card>
@@ -187,109 +200,119 @@ export default function ImpactPage() {
         {/* Results */}
         {result && (
           <StaggerContainer className="space-y-6">
-            {/* Score Card */}
+            {/* Score Card with CircularProgress */}
             <StaggerItem>
-              <Card>
+              <Card className="overflow-hidden">
                 <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground uppercase tracking-wide">
-                        Impact Score
-                      </p>
-                      <div className="flex items-baseline gap-2 mt-1">
-                        <span className={`text-5xl font-bold ${getImpactScoreColor(result.scoreLabel)}`}>
-                          {result.score}
-                        </span>
-                        <span className="text-2xl text-muted-foreground">/100</span>
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-6">
+                      <CircularProgress
+                        value={result.score}
+                        size="xl"
+                        showLabel
+                        animated
+                        celebrate={result.score >= 80}
+                      />
+                      <div>
+                        <p className="text-sm text-muted-foreground uppercase tracking-wide font-medium">
+                          Impact Score
+                        </p>
+                        <Badge variant="outline" className="mt-2 capitalize text-sm px-3 py-1">
+                          {result.scoreLabel}
+                        </Badge>
+                        <p className="mt-3 text-muted-foreground max-w-md leading-relaxed">{result.summary}</p>
                       </div>
-                      <Badge variant="outline" className="mt-2 capitalize">
-                        {result.scoreLabel}
-                      </Badge>
                     </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <p className="text-2xl font-bold">{result.totalBullets}</p>
-                          <p className="text-xs text-muted-foreground">Total Bullets</p>
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold text-green-500">{result.bulletsImproved}</p>
-                          <p className="text-xs text-muted-foreground">Improved</p>
-                        </div>
-                      </div>
+                    <div className="flex gap-4">
+                      <StatCard
+                        label="Total Bullets"
+                        value={result.totalBullets}
+                        icon={<BarChart3 />}
+                        size="sm"
+                        variant="outline"
+                      />
+                      <StatCard
+                        label="Improved"
+                        value={result.bulletsImproved}
+                        icon={<TrendingUp />}
+                        size="sm"
+                        variant="gradient"
+                        trend={{
+                          value: Math.round((result.bulletsImproved / result.totalBullets) * 100),
+                          direction: result.bulletsImproved > 0 ? "up" : "stable",
+                        }}
+                      />
                     </div>
                   </div>
-                  <p className="mt-4 text-muted-foreground">{result.summary}</p>
                 </CardContent>
               </Card>
             </StaggerItem>
 
             {/* Metric Categories */}
             <StaggerItem>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Hash className="h-5 w-5 text-primary" />
-                    Metrics Found
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-5 gap-4">
-                    <MetricCategoryCard
-                      icon={<Percent className="h-5 w-5" />}
-                      label="Percentage"
-                      count={result.metricCategories.percentage}
-                      color="text-blue-500"
-                    />
-                    <MetricCategoryCard
-                      icon={<DollarSign className="h-5 w-5" />}
-                      label="Monetary"
-                      count={result.metricCategories.monetary}
-                      color="text-green-500"
-                    />
-                    <MetricCategoryCard
-                      icon={<Clock className="h-5 w-5" />}
-                      label="Time"
-                      count={result.metricCategories.time}
-                      color="text-amber-500"
-                    />
-                    <MetricCategoryCard
-                      icon={<Users className="h-5 w-5" />}
-                      label="Scale"
-                      count={result.metricCategories.scale}
-                      color="text-purple-500"
-                    />
-                    <MetricCategoryCard
-                      icon={<Hash className="h-5 w-5" />}
-                      label="Other"
-                      count={result.metricCategories.other}
-                      color="text-gray-500"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Hash className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Metrics Found</h3>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                  <StatCard
+                    label="Percentage"
+                    value={result.metricCategories.percentage}
+                    icon={<Percent />}
+                    size="sm"
+                    variant="glass"
+                  />
+                  <StatCard
+                    label="Monetary"
+                    value={result.metricCategories.monetary}
+                    icon={<DollarSign />}
+                    size="sm"
+                    variant="glass"
+                  />
+                  <StatCard
+                    label="Time"
+                    value={result.metricCategories.time}
+                    icon={<Clock />}
+                    size="sm"
+                    variant="glass"
+                  />
+                  <StatCard
+                    label="Scale"
+                    value={result.metricCategories.scale}
+                    icon={<Users />}
+                    size="sm"
+                    variant="glass"
+                  />
+                  <StatCard
+                    label="Other"
+                    value={result.metricCategories.other}
+                    icon={<Hash />}
+                    size="sm"
+                    variant="glass"
+                  />
+                </div>
+              </div>
             </StaggerItem>
 
             {/* Bullet Improvements */}
             <StaggerItem>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">
                     Bullet Point Improvements ({result.bullets.length})
-                  </CardTitle>
-                  <CardDescription>
-                    Before and after comparison with quantified metrics
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {result.bullets.map((bullet) => (
-                      <BulletCard key={bullet.id} bullet={bullet} />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                  </h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Before and after comparison with quantified metrics
+                </p>
+                <BentoGrid columns={2} gap="md">
+                  {result.bullets.map((bullet) => (
+                    <BulletCard key={bullet.id} bullet={bullet} />
+                  ))}
+                </BentoGrid>
+              </div>
             </StaggerItem>
 
             {/* Suggestions */}
@@ -330,92 +353,76 @@ export default function ImpactPage() {
 }
 
 /**
- * Metric category card component
- */
-function MetricCategoryCard({
-  icon,
-  label,
-  count,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  count: number;
-  color: string;
-}) {
-  return (
-    <div className="text-center p-4 rounded-lg border bg-card">
-      <div className={`inline-flex ${color}`}>{icon}</div>
-      <p className="text-2xl font-bold mt-2">{count}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-/**
- * Individual bullet card component
+ * Individual bullet card component with BentoCard styling
  */
 function BulletCard({ bullet }: { bullet: ImpactBullet }) {
   const isImproved = bullet.improvement !== "none";
 
   return (
-    <div className="p-4 rounded-lg border bg-card">
-      <div className="flex items-start justify-between gap-4 mb-3">
-        <div>
-          <p className="font-medium text-sm">{bullet.experienceTitle}</p>
-          <p className="text-xs text-muted-foreground">{bullet.companyName}</p>
+    <BentoCard variant="glass" hover animated>
+      <div className="space-y-3">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-semibold text-sm text-foreground">{bullet.experienceTitle}</p>
+            <p className="text-xs text-muted-foreground">{bullet.companyName}</p>
+          </div>
+          <Badge className={`text-xs shrink-0 ${getImprovementColor(bullet.improvement)}`}>
+            {getImprovementLabel(bullet.improvement)}
+          </Badge>
         </div>
-        <Badge className={`text-xs ${getImprovementColor(bullet.improvement)}`}>
-          {getImprovementLabel(bullet.improvement)}
-        </Badge>
-      </div>
 
-      {isImproved ? (
-        <div className="space-y-3">
-          {/* Original */}
-          <div className="p-3 rounded bg-red-500/5 border border-red-500/20">
-            <p className="text-xs text-red-500 uppercase tracking-wide mb-1">Original</p>
-            <p className="text-sm text-muted-foreground line-through">{bullet.original}</p>
-          </div>
-
-          {/* Arrow */}
-          <div className="flex justify-center">
-            <ArrowRight className="h-5 w-5 text-primary" />
-          </div>
-
-          {/* Improved */}
-          <div className="p-3 rounded bg-green-500/5 border border-green-500/20">
-            <p className="text-xs text-green-500 uppercase tracking-wide mb-1">Improved</p>
-            <p className="text-sm font-medium">{bullet.improved}</p>
-          </div>
-
-          {/* Metrics Added */}
-          {bullet.metrics.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {bullet.metrics.map((metric, i) => (
-                <Badge key={i} variant="secondary" className="text-xs">
-                  {metric}
-                </Badge>
-              ))}
+        {isImproved ? (
+          <div className="space-y-3">
+            {/* Original */}
+            <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+              <p className="text-xs text-destructive uppercase tracking-wide mb-1.5 font-medium">Original</p>
+              <p className="text-sm text-muted-foreground line-through">{bullet.original}</p>
             </div>
-          )}
 
-          {/* Explanation */}
-          {bullet.explanation && (
-            <p className="text-xs text-muted-foreground italic mt-2">
-              {bullet.explanation}
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="p-3 rounded bg-green-500/5 border border-green-500/20">
-          <div className="flex items-center gap-2 mb-1">
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-            <p className="text-xs text-green-500 uppercase tracking-wide">Already Quantified</p>
+            {/* Arrow */}
+            <div className="flex justify-center">
+              <div className="p-1.5 rounded-full bg-primary/10">
+                <ArrowRight className="h-4 w-4 text-primary" />
+              </div>
+            </div>
+
+            {/* Improved */}
+            <div className="p-3 rounded-lg bg-success/5 border border-success/20">
+              <p className="text-xs text-success uppercase tracking-wide mb-1.5 font-medium">Improved</p>
+              <p className="text-sm font-medium text-foreground">{bullet.improved}</p>
+            </div>
+
+            {/* Metrics Added */}
+            {bullet.metrics.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {bullet.metrics.map((metric, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs bg-primary/10 text-primary border-0">
+                    {metric}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Explanation */}
+            {bullet.explanation && (
+              <div className="pt-2 border-t border-border/50">
+                <p className="text-xs text-muted-foreground italic leading-relaxed">
+                  {bullet.explanation}
+                </p>
+              </div>
+            )}
           </div>
-          <p className="text-sm">{bullet.original}</p>
-        </div>
-      )}
-    </div>
+        ) : (
+          <div className="p-3 rounded-lg bg-success/5 border border-success/20">
+            <div className="flex items-center gap-2 mb-1.5">
+              <CheckCircle2 className="h-4 w-4 text-success" />
+              <p className="text-xs text-success uppercase tracking-wide font-medium">Already Quantified</p>
+            </div>
+            <p className="text-sm text-foreground">{bullet.original}</p>
+          </div>
+        )}
+      </div>
+    </BentoCard>
   );
 }

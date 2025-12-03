@@ -14,11 +14,12 @@ type JobFormInput = z.input<typeof createJobSchema>;
 
 interface JobFormProps {
   onSubmit: (data: CreateJobInput) => Promise<void>;
+  onCancel?: () => void;
   isLoading?: boolean;
   defaultValues?: Partial<JobFormInput>;
 }
 
-export function JobForm({ onSubmit, isLoading, defaultValues }: JobFormProps) {
+export function JobForm({ onSubmit, onCancel, isLoading, defaultValues }: JobFormProps) {
   const {
     register,
     handleSubmit,
@@ -164,7 +165,7 @@ export function JobForm({ onSubmit, isLoading, defaultValues }: JobFormProps) {
 
       {/* Submit Button */}
       <div className="flex justify-end gap-3">
-        <Button type="button" variant="outline" disabled={isLoading}>
+        <Button type="button" variant="outline" disabled={isLoading} onClick={onCancel}>
           Cancel
         </Button>
         <Button type="submit" disabled={isLoading}>

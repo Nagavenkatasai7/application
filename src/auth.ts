@@ -20,6 +20,10 @@ import {
 import { verifyPassword } from "@/lib/auth/password";
 import { loginWithPasswordSchema } from "@/lib/validations/auth";
 
+// Login brute force protection constants
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db, {
     usersTable: users,
@@ -60,9 +64,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Check if user is locked out
+        if (user.loginLockoutUntil && new Date() < user.loginLockoutUntil) {
+          throw new Error("ACCOUNT_LOCKED");
+        }
+
         // Verify password
         const isValidPassword = await verifyPassword(password, user.password);
         if (!isValidPassword) {
+          // Increment failed login attempts
+          const newAttempts = (user.failedLoginAttempts || 0) + 1;
+          const shouldLockout = newAttempts >= MAX_LOGIN_ATTEMPTS;
+
+          await db
+            .update(users)
+            .set({
+              failedLoginAttempts: newAttempts,
+              loginLockoutUntil: shouldLockout
+                ? new Date(Date.now() + LOGIN_LOCKOUT_DURATION_MS)
+                : null,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, user.id));
+
+          if (shouldLockout) {
+            throw new Error("ACCOUNT_LOCKED");
+          }
+
           return null;
         }
 
@@ -70,6 +98,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user.emailVerified) {
           // Throw a specific error to be handled by the client
           throw new Error("EMAIL_NOT_VERIFIED");
+        }
+
+        // Successful login - reset failed attempt counters
+        if ((user.failedLoginAttempts ?? 0) > 0 || user.loginLockoutUntil) {
+          await db
+            .update(users)
+            .set({
+              failedLoginAttempts: 0,
+              loginLockoutUntil: null,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, user.id));
         }
 
         // Return user object for session
@@ -88,14 +128,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/auth-error",
   },
   session: {
-    strategy: "database",
+    // Use JWT strategy - required for Credentials provider to work
+    // Database strategy only works with OAuth providers
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
-    session: async ({ session, user }) => {
-      // Include user.id in session for API routes
-      if (session.user) {
-        session.user.id = user.id;
+    jwt: async ({ token, user }) => {
+      // Include user.id in JWT token on sign in
+      if (user) {
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.picture = user.image;
+      }
+      return token;
+    },
+    session: async ({ session, token }) => {
+      // Include user.id from JWT token in session for API routes
+      if (session.user && token.id) {
+        session.user.id = token.id as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string | null;
+        session.user.image = token.picture as string | null;
       }
       return session;
     },

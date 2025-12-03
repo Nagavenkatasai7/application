@@ -277,9 +277,9 @@ describe("Job Validation Schemas", () => {
         requirements: ["Req 1", "Req 2"],
         skills: ["Skill 1", "Skill 2"],
         salary: "$100k - $150k",
-        postedAt: 1700000000,
-        cachedAt: 1700000001,
-        createdAt: 1700000002,
+        postedAt: "2023-11-14T22:13:20.000Z",
+        cachedAt: "2023-11-14T22:13:21.000Z",
+        createdAt: "2023-11-14T22:13:22.000Z",
       };
       const result = jobResponseSchema.safeParse(response);
       expect(result.success).toBe(true);

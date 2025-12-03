@@ -30,13 +30,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/layout/page-transition";
+import { CircularProgress } from "@/components/ui/circular-progress";
+import { StatCard } from "@/components/ui/stat-card";
+import { BentoCard } from "@/components/ui/bento-grid";
 import type { CompanyResearchResult, InterviewTip } from "@/lib/validations/company";
 import {
   getCultureScoreColor,
   getCultureScoreLabel,
   getInterviewCategoryLabel,
   getPriorityColor,
-  getPriorityBgColor,
 } from "@/lib/validations/company";
 
 interface APIResponse<T> {
@@ -363,31 +365,41 @@ export default function CompanyResearchPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Overall Score */}
-                  <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Overall Culture Score</p>
-                      <div className="flex items-baseline gap-2">
-                        <span className={`text-3xl font-bold ${getCultureScoreColor(avgCultureScore)}`}>
-                          {avgCultureScore.toFixed(1)}
-                        </span>
-                        <span className="text-muted-foreground">/5</span>
+                  {/* Overall Score with CircularProgress */}
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-6">
+                      <CircularProgress
+                        value={avgCultureScore * 20}
+                        size="xl"
+                        showLabel
+                        animated
+                        celebrate={avgCultureScore >= 4}
+                      />
+                      <div>
+                        <p className="text-sm text-muted-foreground uppercase tracking-wide font-medium">
+                          Overall Culture Score
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="capitalize text-sm px-3 py-1">
+                            {getCultureScoreLabel(avgCultureScore)}
+                          </Badge>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`h-4 w-4 ${
+                                  star <= Math.round(avgCultureScore)
+                                    ? "text-amber-500 fill-amber-500"
+                                    : "text-muted-foreground/30"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="mt-3 text-sm text-muted-foreground max-w-sm">
+                          Based on {result.cultureDimensions.length} culture dimensions analyzed
+                        </p>
                       </div>
-                      <Badge variant="outline" className="mt-1">
-                        {getCultureScoreLabel(avgCultureScore)}
-                      </Badge>
-                    </div>
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          className={`h-5 w-5 ${
-                            star <= Math.round(avgCultureScore)
-                              ? "text-amber-500 fill-amber-500"
-                              : "text-muted-foreground/30"
-                          }`}
-                        />
-                      ))}
                     </div>
                   </div>
 
@@ -426,31 +438,34 @@ export default function CompanyResearchPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Rating & Stats */}
-                  <div className="grid grid-cols-3 gap-4">
+                  {/* Rating & Stats with StatCards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {result.glassdoorData.overallRating && (
-                      <div className="text-center p-4 rounded-lg bg-muted/50">
-                        <p className="text-3xl font-bold text-primary">
-                          {result.glassdoorData.overallRating.toFixed(1)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Overall Rating</p>
-                      </div>
+                      <StatCard
+                        label="Overall Rating"
+                        value={result.glassdoorData.overallRating.toFixed(1)}
+                        icon={<Star />}
+                        size="sm"
+                        variant="gradient"
+                      />
                     )}
                     {result.glassdoorData.recommendToFriend && (
-                      <div className="text-center p-4 rounded-lg bg-muted/50">
-                        <p className="text-lg font-bold text-green-500">
-                          {result.glassdoorData.recommendToFriend}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Recommend to Friend</p>
-                      </div>
+                      <StatCard
+                        label="Recommend to Friend"
+                        value={result.glassdoorData.recommendToFriend}
+                        icon={<ThumbsUp />}
+                        size="sm"
+                        variant="glass"
+                      />
                     )}
                     {result.glassdoorData.ceoApproval && (
-                      <div className="text-center p-4 rounded-lg bg-muted/50">
-                        <p className="text-lg font-bold text-blue-500">
-                          {result.glassdoorData.ceoApproval}
-                        </p>
-                        <p className="text-xs text-muted-foreground">CEO Approval</p>
-                      </div>
+                      <StatCard
+                        label="CEO Approval"
+                        value={result.glassdoorData.ceoApproval}
+                        icon={<Award />}
+                        size="sm"
+                        variant="glass"
+                      />
                     )}
                   </div>
 
@@ -696,13 +711,20 @@ export default function CompanyResearchPage() {
  */
 function InterviewTipCard({ tip }: { tip: InterviewTip }) {
   return (
-    <div className={`p-3 rounded-lg border ${getPriorityBgColor(tip.priority)}`}>
-      <div className="flex items-start gap-2">
-        <Badge variant="outline" className={`text-xs ${getPriorityColor(tip.priority)}`}>
-          {tip.priority}
-        </Badge>
-        <p className="text-sm">{tip.tip}</p>
+    <BentoCard variant="glass" hover animated>
+      <div className="flex items-start gap-3">
+        <div className="p-1.5 rounded-lg bg-primary/10 shrink-0">
+          <Lightbulb className="h-4 w-4 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Badge variant="outline" className={`text-xs capitalize ${getPriorityColor(tip.priority)}`}>
+              {tip.priority} priority
+            </Badge>
+          </div>
+          <p className="text-sm text-foreground leading-relaxed">{tip.tip}</p>
+        </div>
       </div>
-    </div>
+    </BentoCard>
   );
 }

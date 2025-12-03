@@ -63,25 +63,25 @@ describe('Button Component', () => {
     it('should render default size', () => {
       render(<Button size="default">Default</Button>)
       const button = screen.getByRole('button')
-      expect(button.className).toContain('h-9')
+      expect(button.className).toContain('h-10')
     })
 
     it('should render small size', () => {
       render(<Button size="sm">Small</Button>)
       const button = screen.getByRole('button')
-      expect(button.className).toContain('h-8')
+      expect(button.className).toContain('h-9')
     })
 
     it('should render large size', () => {
       render(<Button size="lg">Large</Button>)
       const button = screen.getByRole('button')
-      expect(button.className).toContain('h-10')
+      expect(button.className).toContain('h-12')
     })
 
     it('should render icon size', () => {
       render(<Button size="icon">Icon</Button>)
       const button = screen.getByRole('button')
-      expect(button.className).toContain('size-9')
+      expect(button.className).toContain('size-10')
     })
   })
 
@@ -139,7 +139,7 @@ describe('Button Component', () => {
     it('should generate correct class string', () => {
       const classes = buttonVariants({ variant: 'default', size: 'default' })
       expect(classes).toContain('bg-primary')
-      expect(classes).toContain('h-9')
+      expect(classes).toContain('h-10')
     })
   })
 })

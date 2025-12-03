@@ -42,6 +42,7 @@ export async function POST(request: Request) {
       id: uuidv4(),
       platform: body.platform,
       externalId: body.externalId || null,
+      url: body.url || null,
       title: body.title,
       companyId: body.companyId || null,
       companyName: body.companyName || null,

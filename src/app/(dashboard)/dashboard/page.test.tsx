@@ -1,18 +1,27 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import DashboardPage from './page'
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import DashboardPage from "./page";
 
-// Mock next/link
-vi.mock('next/link', () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}))
+// Mock next/navigation
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+  }),
+}));
+
+// Mock sonner
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 // Mock fetch
-const mockFetch = vi.fn()
-global.fetch = mockFetch
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 const createTestQueryClient = () =>
   new QueryClient({
@@ -22,231 +31,137 @@ const createTestQueryClient = () =>
         gcTime: 0,
       },
     },
-  })
+  });
 
 const renderWithProviders = (ui: React.ReactElement) => {
-  const queryClient = createTestQueryClient()
+  const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-  )
-}
+  );
+};
 
-describe('Dashboard Page', () => {
+describe("Dashboard Page", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.clearAllMocks();
     // Default mock responses for API calls
     mockFetch.mockImplementation((url: string) => {
-      if (url === '/api/resumes') {
+      if (url === "/api/resumes") {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ success: true, data: [], meta: { total: 5 } }),
-        })
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: [
+                { id: "resume-1", name: "My Resume" },
+                { id: "resume-2", name: "Other Resume" },
+              ],
+            }),
+        });
       }
-      if (url === '/api/jobs') {
+      if (url === "/api/jobs") {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ success: true, data: [], meta: { total: 3 } }),
-        })
-      }
-      if (url === '/api/applications') {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ success: true, data: [], meta: { total: 7 } }),
-        })
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: [
+                { id: "job-1", title: "Software Engineer", companyName: "Acme" },
+              ],
+            }),
+        });
       }
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ success: true, data: [], meta: { total: 0 } }),
-      })
-    })
-  })
+        json: () => Promise.resolve({ success: true, data: [] }),
+      });
+    });
+  });
 
-  describe('Welcome Section', () => {
-    it('should render welcome heading', async () => {
-      renderWithProviders(<DashboardPage />)
+  describe("Header Section", () => {
+    it("should render page heading", async () => {
+      renderWithProviders(<DashboardPage />);
 
-      expect(screen.getByText('Welcome to Resume Tailor')).toBeInTheDocument()
-    })
+      expect(screen.getByText(/AI-Powered Resume Tailoring/i)).toBeInTheDocument();
+    });
 
-    it('should render welcome description', async () => {
-      renderWithProviders(<DashboardPage />)
+    it("should render page description", async () => {
+      renderWithProviders(<DashboardPage />);
 
       expect(
-        screen.getByText(/Create highly optimized, ATS-compliant resumes/)
-      ).toBeInTheDocument()
-    })
-  })
+        screen.getByText(/Ready to land your dream job/i)
+      ).toBeInTheDocument();
+    });
+  });
 
-  describe('Quick Actions', () => {
-    it('should render Upload Resume action', async () => {
-      renderWithProviders(<DashboardPage />)
+  describe("Resume Selection", () => {
+    it("should render resume selection card", async () => {
+      renderWithProviders(<DashboardPage />);
 
-      expect(screen.getByText('Upload Resume')).toBeInTheDocument()
+      expect(screen.getByText("1. Select Your Resume")).toBeInTheDocument();
       expect(
-        screen.getByText('Upload your master resume to get started')
-      ).toBeInTheDocument()
-    })
+        screen.getByText("Choose an existing resume or upload a new one")
+      ).toBeInTheDocument();
+    });
 
-    it('should render Import Job action', async () => {
-      renderWithProviders(<DashboardPage />)
+    it("should render resume selector component", async () => {
+      renderWithProviders(<DashboardPage />);
 
-      expect(screen.getByText('Import Job')).toBeInTheDocument()
-      expect(screen.getByText('Paste a job URL or description')).toBeInTheDocument()
-    })
-
-    it('should render Tailor Resume action', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      expect(screen.getByText('Tailor Resume')).toBeInTheDocument()
-      expect(
-        screen.getByText('Generate an optimized resume for a job')
-      ).toBeInTheDocument()
-    })
-
-    it('should have links to appropriate pages', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      // Find links by href
-      const resumesLinks = screen.getAllByRole('link').filter(
-        (link) => link.getAttribute('href') === '/resumes'
-      )
-      const jobsLinks = screen.getAllByRole('link').filter(
-        (link) => link.getAttribute('href') === '/jobs'
-      )
-
-      expect(resumesLinks.length).toBeGreaterThanOrEqual(1)
-      expect(jobsLinks.length).toBeGreaterThanOrEqual(1)
-    })
-  })
-
-  describe('Stats Overview', () => {
-    it('should render Overview heading', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      expect(screen.getByText('Overview')).toBeInTheDocument()
-    })
-
-    it('should render Resumes stat', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      expect(screen.getByText('Resumes')).toBeInTheDocument()
-      expect(screen.getByText('Total resumes created')).toBeInTheDocument()
-    })
-
-    it('should render Jobs Saved stat', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      expect(screen.getByText('Jobs Saved')).toBeInTheDocument()
-      expect(screen.getByText('Jobs in your pipeline')).toBeInTheDocument()
-    })
-
-    it('should render Applications stat', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      expect(screen.getByText('Applications')).toBeInTheDocument()
-      expect(screen.getByText('Applications tracked')).toBeInTheDocument()
-    })
-
-    it('should render Match Score stat', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      expect(screen.getByText('Match Score')).toBeInTheDocument()
-      expect(screen.getByText('Average ATS score')).toBeInTheDocument()
-    })
-
-    it('should show fetched stats values', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      // Wait for the stats to load
+      // Wait for resumes to load
       await waitFor(() => {
-        expect(screen.getByText('5')).toBeInTheDocument() // Resumes
-      })
+        expect(screen.getByText("Your Resume")).toBeInTheDocument();
+      });
+    });
+  });
 
-      expect(screen.getByText('3')).toBeInTheDocument() // Jobs
-      expect(screen.getByText('7')).toBeInTheDocument() // Applications
-    })
+  describe("Job Input Section", () => {
+    it("should render job input card", async () => {
+      renderWithProviders(<DashboardPage />);
 
-    it('should show loading shimmer while fetching', async () => {
-      mockFetch.mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 1000))
-      )
-
-      const { container } = renderWithProviders(<DashboardPage />)
-
-      // Should show shimmer loading elements while loading
-      // Shimmer components have bg-muted class
-      const shimmers = container.querySelectorAll('.bg-muted')
-      expect(shimmers.length).toBeGreaterThanOrEqual(1)
-    })
-  })
-
-  describe('Analysis Modules Preview', () => {
-    it('should render Analysis Modules heading', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      expect(screen.getByText('Analysis Modules')).toBeInTheDocument()
-    })
-
-    it('should render Uniqueness Extraction module', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      expect(screen.getByText('Uniqueness Extraction')).toBeInTheDocument()
+      expect(screen.getByText("2. Target Job")).toBeInTheDocument();
       expect(
-        screen.getByText(/Identify rare skills, certifications/)
-      ).toBeInTheDocument()
-    })
+        screen.getByText("Paste a job description or select from your saved jobs")
+      ).toBeInTheDocument();
+    });
 
-    it('should render Impact Quantification module', async () => {
-      renderWithProviders(<DashboardPage />)
+    it("should render job input tabs", async () => {
+      renderWithProviders(<DashboardPage />);
 
-      expect(screen.getByText('Impact Quantification')).toBeInTheDocument()
+      expect(screen.getByText("Paste Job")).toBeInTheDocument();
+      expect(screen.getByText("Saved Jobs")).toBeInTheDocument();
+    });
+  });
+
+  describe("Tailor Button", () => {
+    it("should render tailor button", async () => {
+      renderWithProviders(<DashboardPage />);
+
       expect(
-        screen.getByText(/Transform vague achievements into measurable metrics/)
-      ).toBeInTheDocument()
-    })
+        screen.getByRole("button", { name: /Tailor My Resume/i })
+      ).toBeInTheDocument();
+    });
 
-    it('should render Context Alignment module', async () => {
-      renderWithProviders(<DashboardPage />)
+    it("should disable tailor button when inputs are empty", async () => {
+      renderWithProviders(<DashboardPage />);
 
-      expect(screen.getByText('Context Alignment')).toBeInTheDocument()
-      expect(
-        screen.getByText(/Match your resume content to job requirements/)
-      ).toBeInTheDocument()
-    })
+      const button = screen.getByRole("button", { name: /Tailor My Resume/i });
+      expect(button).toBeDisabled();
+    });
+  });
 
-    it('should show Coming Soon badges', async () => {
-      renderWithProviders(<DashboardPage />)
+  describe("Layout and Structure", () => {
+    it("should have proper page structure", async () => {
+      const { container } = renderWithProviders(<DashboardPage />);
 
-      const comingSoonBadges = screen.getAllByText('Coming Soon')
-      expect(comingSoonBadges.length).toBe(3) // One for each module
-    })
-  })
+      // Should have main layout container
+      expect(container.querySelector(".space-y-8")).toBeInTheDocument();
+    });
 
-  describe('Layout and Structure', () => {
-    it('should have proper page structure', async () => {
-      const { container } = renderWithProviders(<DashboardPage />)
+    it("should render two cards for inputs", async () => {
+      renderWithProviders(<DashboardPage />);
 
-      // Should have sections
-      expect(container.querySelector('.space-y-8')).toBeInTheDocument()
-    })
-
-    it('should render all sections in order', async () => {
-      renderWithProviders(<DashboardPage />)
-
-      const headings = screen.getAllByRole('heading')
-
-      // Find the main headings
-      const welcomeHeading = headings.find((h) =>
-        h.textContent?.includes('Welcome to Resume Tailor')
-      )
-      const overviewHeading = headings.find((h) => h.textContent === 'Overview')
-      const modulesHeading = headings.find((h) =>
-        h.textContent === 'Analysis Modules'
-      )
-
-      expect(welcomeHeading).toBeInTheDocument()
-      expect(overviewHeading).toBeInTheDocument()
-      expect(modulesHeading).toBeInTheDocument()
-    })
-  })
-})
+      // Should have the two main input cards
+      expect(screen.getByText("1. Select Your Resume")).toBeInTheDocument();
+      expect(screen.getByText("2. Target Job")).toBeInTheDocument();
+    });
+  });
+});

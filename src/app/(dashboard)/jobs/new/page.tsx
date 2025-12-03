@@ -74,6 +74,7 @@ export default function NewJobPage() {
         {/* Form */}
         <JobForm
           onSubmit={handleSubmit}
+          onCancel={() => router.push("/jobs")}
           isLoading={createMutation.isPending}
         />
       </div>

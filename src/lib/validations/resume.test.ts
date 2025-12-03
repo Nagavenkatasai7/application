@@ -9,6 +9,18 @@ import {
 
 describe("Resume Validation", () => {
   describe("validatePdfFile", () => {
+    it("should reject null/undefined file", () => {
+      // @ts-expect-error - Testing null case
+      const result1 = validatePdfFile(null);
+      expect(result1.valid).toBe(false);
+      expect(result1.error).toBe("No file provided");
+
+      // @ts-expect-error - Testing undefined case
+      const result2 = validatePdfFile(undefined);
+      expect(result2.valid).toBe(false);
+      expect(result2.error).toBe("No file provided");
+    });
+
     it("should accept valid PDF file", () => {
       const file = new File(["test content"], "resume.pdf", {
         type: "application/pdf",

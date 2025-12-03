@@ -5,7 +5,6 @@ import {
   linkedInSearchResponseSchema,
   getTimeFrameLabel,
   validateSearchParams,
-  type LinkedInSearchInput,
 } from "./linkedin";
 import type { TimeFrame } from "@/lib/linkedin/types";
 
@@ -115,6 +114,55 @@ describe("linkedInSearchSchema", () => {
           timeFrame: "invalid",
         })
       ).toThrow();
+    });
+  });
+
+  describe("companyName validation", () => {
+    it("should accept valid company names array", () => {
+      const result = linkedInSearchSchema.parse({
+        keywords: "Developer",
+        timeFrame: "24h",
+        companyName: ["Google", "Meta"],
+      });
+      expect(result.companyName).toEqual(["Google", "Meta"]);
+    });
+
+    it("should transform empty array to undefined", () => {
+      const result = linkedInSearchSchema.parse({
+        keywords: "Developer",
+        timeFrame: "24h",
+        companyName: [],
+      });
+      expect(result.companyName).toBeUndefined();
+    });
+
+    it("should trim company names", () => {
+      const result = linkedInSearchSchema.parse({
+        keywords: "Developer",
+        timeFrame: "24h",
+        companyName: ["  Google  ", "  Meta  "],
+      });
+      expect(result.companyName).toEqual(["Google", "Meta"]);
+    });
+  });
+
+  describe("companyId validation", () => {
+    it("should accept valid company IDs array", () => {
+      const result = linkedInSearchSchema.parse({
+        keywords: "Developer",
+        timeFrame: "24h",
+        companyId: ["id1", "id2"],
+      });
+      expect(result.companyId).toEqual(["id1", "id2"]);
+    });
+
+    it("should transform empty array to undefined", () => {
+      const result = linkedInSearchSchema.parse({
+        keywords: "Developer",
+        timeFrame: "24h",
+        companyId: [],
+      });
+      expect(result.companyId).toBeUndefined();
     });
   });
 

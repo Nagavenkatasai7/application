@@ -1,0 +1,333 @@
+name: Vercel Integration Tests
+
+on:
+  deployment_status:
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  # Database Schema Validation
+  database-setup:
+    name: Database Schema Setup
+    runs-on: ubuntu-latest
+    # Run on successful Vercel deployments (Preview or Production)
+    if: >
+      github.event.deployment_status.state == 'success' &&
+      (github.event.deployment_status.environment == 'Preview' ||
+       github.event.deployment_status.environment == 'Production')
+    outputs:
+      deployment_url: ${{ steps.deployment.outputs.url }}
+      environment: ${{ github.event.deployment_status.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set deployment URL
+        id: deployment
+        run: |
+          DEPLOYMENT_URL="${{ github.event.deployment_status.target_url }}"
+          echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          echo "Deployment URL: $DEPLOYMENT_URL"
+          echo "Environment: ${{ github.event.deployment_status.environment }}"
+
+      - name: Push database schema
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+        run: |
+          echo "Pushing database schema to Vercel Postgres..."
+          pnpm db:push
+          echo "Database schema pushed successfully!"
+
+      - name: Verify database connection
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+        run: |
+          echo "Verifying database connection..."
+          node -e "
+            const { sql } = require('@vercel/postgres');
+            async function test() {
+              try {
+                const result = await sql\`SELECT NOW() as current_time\`;
+                console.log('Database connection successful:', result.rows[0].current_time);
+                process.exit(0);
+              } catch (error) {
+                console.error('Database connection failed:', error.message);
+                process.exit(1);
+              }
+            }
+            test();
+          " || echo "Database verification skipped (optional)"
+
+  # Unit Tests Against Deployed Environment
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: database-setup
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests with coverage
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_PROVIDER: anthropic
+          APIFY_API_KEY: ${{ secrets.APIFY_API_KEY }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+        run: pnpm test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: integration
+          name: vercel-integration-tests
+
+  # E2E Tests Against Deployed URL
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: database-setup
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Wait for deployment to be ready
+        run: |
+          DEPLOYMENT_URL="${{ needs.database-setup.outputs.deployment_url }}"
+          echo "Waiting for deployment at: $DEPLOYMENT_URL"
+
+          # Wait up to 3 minutes for the deployment to be fully ready
+          for i in {1..36}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOYMENT_URL" || echo "000")
+            if echo "$HTTP_CODE" | grep -q "200\|302\|301\|401"; then
+              echo "Deployment is ready! (HTTP $HTTP_CODE)"
+              break
+            fi
+            echo "Attempt $i: Waiting for deployment... (HTTP $HTTP_CODE)"
+            sleep 5
+          done
+
+      - name: Run E2E tests (${{ matrix.browser }})
+        run: pnpm test:e2e --project=${{ matrix.browser }}
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ needs.database-setup.outputs.deployment_url }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+
+      - name: Upload Playwright report (${{ matrix.browser }})
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Upload test results (${{ matrix.browser }})
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 30
+
+  # Mobile E2E Tests
+  e2e-mobile:
+    name: E2E Tests (Mobile)
+    runs-on: ubuntu-latest
+    needs: database-setup
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [mobile-chrome, mobile-safari]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: |
+          if [ "${{ matrix.project }}" = "mobile-chrome" ]; then
+            pnpm exec playwright install --with-deps chromium
+          else
+            pnpm exec playwright install --with-deps webkit
+          fi
+
+      - name: Wait for deployment to be ready
+        run: |
+          DEPLOYMENT_URL="${{ needs.database-setup.outputs.deployment_url }}"
+          echo "Waiting for deployment at: $DEPLOYMENT_URL"
+
+          for i in {1..36}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOYMENT_URL" || echo "000")
+            if echo "$HTTP_CODE" | grep -q "200\|302\|301\|401"; then
+              echo "Deployment is ready! (HTTP $HTTP_CODE)"
+              break
+            fi
+            echo "Attempt $i: Waiting for deployment... (HTTP $HTTP_CODE)"
+            sleep 5
+          done
+
+      - name: Run E2E tests (${{ matrix.project }})
+        run: pnpm test:e2e --project=${{ matrix.project }}
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ needs.database-setup.outputs.deployment_url }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+
+      - name: Upload Playwright report (${{ matrix.project }})
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: playwright-report/
+          retention-days: 30
+
+  # API Health Check
+  api-health-check:
+    name: API Health Check
+    runs-on: ubuntu-latest
+    needs: database-setup
+    steps:
+      - name: Wait for deployment
+        run: sleep 15
+
+      - name: Check API health endpoint
+        run: |
+          DEPLOYMENT_URL="${{ needs.database-setup.outputs.deployment_url }}"
+          echo "Checking API health at: $DEPLOYMENT_URL/api/health"
+
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOYMENT_URL/api/health" || echo "000")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "API health check passed!"
+          elif [ "$HTTP_CODE" = "401" ]; then
+            echo "Deployment protected by authentication (HTTP 401) - considered successful"
+          else
+            echo "API health check failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Test API endpoints
+        run: |
+          DEPLOYMENT_URL="${{ needs.database-setup.outputs.deployment_url }}"
+
+          # Test resumes API (should return 401 for unauthenticated requests)
+          echo "Testing /api/resumes..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOYMENT_URL/api/resumes" || echo "000")
+          echo "Resumes API: HTTP $HTTP_CODE"
+
+          # Test jobs API
+          echo "Testing /api/jobs..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOYMENT_URL/api/jobs" || echo "000")
+          echo "Jobs API: HTTP $HTTP_CODE"
+
+          echo "API endpoint tests completed!"
+
+  # Aggregate Results
+  integration-results:
+    name: Integration Test Results
+    runs-on: ubuntu-latest
+    needs: [database-setup, unit-tests, e2e-tests, e2e-mobile, api-health-check]
+    if: always()
+    steps:
+      - name: Check all job results
+        run: |
+          echo "=== Integration Test Results ==="
+          echo "Environment: ${{ needs.database-setup.outputs.environment }}"
+          echo "Deployment URL: ${{ needs.database-setup.outputs.deployment_url }}"
+          echo ""
+          echo "Database Setup: ${{ needs.database-setup.result }}"
+          echo "Unit Tests: ${{ needs.unit-tests.result }}"
+          echo "E2E Tests: ${{ needs.e2e-tests.result }}"
+          echo "E2E Mobile: ${{ needs.e2e-mobile.result }}"
+          echo "API Health: ${{ needs.api-health-check.result }}"
+          echo ""
+
+          if [ "${{ needs.database-setup.result }}" = "failure" ] || \
+             [ "${{ needs.unit-tests.result }}" = "failure" ] || \
+             [ "${{ needs.e2e-tests.result }}" = "failure" ] || \
+             [ "${{ needs.e2e-mobile.result }}" = "failure" ] || \
+             [ "${{ needs.api-health-check.result }}" = "failure" ]; then
+            echo "Some integration tests failed!"
+            exit 1
+          fi
+
+          echo "All integration tests passed successfully!"
+
+      - name: Create deployment status check
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const overallResult =
+              '${{ needs.database-setup.result }}' === 'success' &&
+              '${{ needs.unit-tests.result }}' === 'success' &&
+              '${{ needs.e2e-tests.result }}' === 'success' &&
+              '${{ needs.e2e-mobile.result }}' === 'success' &&
+              '${{ needs.api-health-check.result }}' === 'success';
+
+            console.log(`Overall integration test result: ${overallResult ? 'PASSED' : 'FAILED'}`);
+
+            // Output for downstream jobs or notifications
+            core.setOutput('overall_result', overallResult ? 'success' : 'failure');

@@ -98,6 +98,7 @@ export const jobCreateSchema = z.object({
     ])
     .default("manual"),
   externalId: z.string().nullable().optional(),
+  url: z.string().url().nullable().optional(),
   title: z.string().min(1, "Job title is required").max(500),
   companyId: z.string().nullable().optional(),
   companyName: z.string().max(200).nullable().optional(),

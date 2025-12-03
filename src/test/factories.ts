@@ -187,6 +187,7 @@ export function createMockJob(overrides: JobOverrides = {}): Job {
     id: uuidv4(),
     platform: "manual",
     externalId: null,
+    url: null,
     title: `Software Engineer ${idCounter}`,
     companyId: null,
     companyName: "Test Company",

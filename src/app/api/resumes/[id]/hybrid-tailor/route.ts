@@ -8,6 +8,9 @@ import { hybridTailor, HybridTailorError } from "@/lib/ai/tailoring";
 import type { ResumeContent } from "@/lib/validations/resume";
 import type { JobData } from "@/lib/ai/tailoring";
 
+// Vercel serverless timeout (180s for Pro plan, 10s buffer for safety)
+export const maxDuration = 180;
+
 /**
  * Request validation schema
  */

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         .select()
         .from(resumes)
         .where(eq(resumes.userId, authUser.id));
-      exportData.resumes = userResumes.map((r) => ({
+      exportData.resumes = userResumes.map((r: typeof userResumes[number]) => ({
         id: r.id,
         name: r.name,
         content: r.content,
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
         .where(eq(applications.userId, authUser.id));
 
       const uniqueJobs = new Map();
-      userApplications.forEach(({ job }) => {
+      userApplications.forEach(({ job }: { job: typeof userApplications[number]["job"] }) => {
         if (!uniqueJobs.has(job.id)) {
           uniqueJobs.set(job.id, {
             id: job.id,
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
         .select()
         .from(applications)
         .where(eq(applications.userId, authUser.id));
-      exportData.applications = userApplications.map((a) => ({
+      exportData.applications = userApplications.map((a: typeof userApplications[number]) => ({
         id: a.id,
         jobId: a.jobId,
         resumeId: a.resumeId,
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
         .select()
         .from(softSkills)
         .where(eq(softSkills.userId, authUser.id));
-      exportData.softSkills = userSoftSkills.map((s) => ({
+      exportData.softSkills = userSoftSkills.map((s: typeof userSoftSkills[number]) => ({
         id: s.id,
         skillName: s.skillName,
         evidenceScore: s.evidenceScore,

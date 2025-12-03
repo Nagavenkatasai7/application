@@ -177,7 +177,7 @@ describe("JobsPage", () => {
       renderWithProviders(<JobsPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("No jobs saved")).toBeInTheDocument();
+        expect(screen.getByText(/no jobs saved/i)).toBeInTheDocument();
       });
     });
 
@@ -192,7 +192,7 @@ describe("JobsPage", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText("Add a job posting to start tailoring your resume")
+          screen.getByText(/add job postings to track opportunities/i)
         ).toBeInTheDocument();
       });
     });
