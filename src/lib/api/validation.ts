@@ -107,11 +107,16 @@ export const jobCreateSchema = z.object({
   requirements: z.array(z.string()).default([]),
   skills: z.array(z.string()).default([]),
   salary: z
-    .object({
-      min: z.number().optional(),
-      max: z.number().optional(),
-      currency: z.string().default("USD"),
-    })
+    .union([
+      // Accept string format from LinkedIn (e.g., "$200,000/yr")
+      z.string(),
+      // Accept structured format for future use
+      z.object({
+        min: z.number().optional(),
+        max: z.number().optional(),
+        currency: z.string().default("USD"),
+      }),
+    ])
     .nullable()
     .optional(),
   postedAt: z.string().datetime().nullable().optional(),
