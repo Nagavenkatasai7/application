@@ -21,7 +21,7 @@ jobs:
       deployment_url: ${{ steps.deployment.outputs.url }}
       environment: ${{ github.event.deployment_status.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: database-setup
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -121,7 +121,7 @@ jobs:
       matrix:
         browser: [chromium, firefox, webkit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -189,7 +189,7 @@ jobs:
       matrix:
         project: [mobile-chrome, mobile-safari]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
